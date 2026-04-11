@@ -1,0 +1,28 @@
+{
+  "name": "ysa-ai",
+  "packageManager": "bun@1.2.4",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "turbo run build",
+    "start:dashboard": "bun packages/dashboard/server/index.ts",
+    "dev": "turbo run dev",
+    "dev:dashboard": "turbo run dev:all --filter=@ysa-ai/dashboard",
+    "dev:dashboard:server": "turbo run dev:server --filter=@ysa-ai/dashboard",
+    "dev:dashboard:client": "turbo run dev:client --filter=@ysa-ai/dashboard",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "build:images": "CA_DIR=$(pwd)/.ysa/proxy-ca && export CA_DIR && cd node_modules/@ysa-ai/ysa && bun run build:images"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.4.4",
+    "rollup-plugin-visualizer": "^7.0.1",
+    "turbo": "^2.8.3"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@ysa-ai/ysa": "0.3.3",
+    "geist": "^1.7.0",
+    "marked": "^17.0.2",
+    "react-hook-form": "^7.71.2"
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1771300000000,
+      "tag": "0000_initial_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1771300001000,
+      "tag": "0001_auth_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1771300002000,
+      "tag": "0002_org_scoping",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1771300003000,
+      "tag": "0003_session_org",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1771300004000,
+      "tag": "0004_builtin_workflows",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1771300005000,
+      "tag": "0005_remove_org_slug",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1771300006000,
+      "tag": "0006_org_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1771300007000,
+      "tag": "0007_device_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1771300008000,
+      "tag": "0008_submit_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1771300009000,
+      "tag": "0009_tos_consent",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1771300010000,
+      "tag": "0010_user_project_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1771300011000,
+      "tag": "0011_project_issue_source_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1771300012000,
+      "tag": "0012_session11_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1771300013000,
+      "tag": "0013_rename_issues_to_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1771300014000,
+      "tag": "0014_phase_timings_elapsed_ms",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1771300015000,
+      "tag": "0015_phase_timings_segments",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1771300016000,
+      "tag": "0016_task_prompt",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1771300017000,
+      "tag": "0017_gitlab_project_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1771300018000,
+      "tag": "0018_deps_cache_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1771300019000,
+      "tag": "0019_deps_cache_volumes",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1771300020000,
+      "tag": "0020_onboarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1771300021000,
+      "tag": "0021_plan_execute_workflow",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1771300022000,
+      "tag": "0022_credentials_refactor",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1771300023000,
+      "tag": "0023_issue_source_credential",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1771300024000,
+      "tag": "0024_user_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1771300025000,
+      "tag": "0025_ai_configs_personal",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1771300026000,
+      "tag": "0026_builtin_workflow_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1771300027000,
+      "tag": "0027_google_oauth",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1771300028000,
+      "tag": "0028_remove_old_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1771300029000,
+      "tag": "0029_deduplicate_workflow_steps",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1771300030000,
+      "tag": "0030_maintenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1771300031000,
+      "tag": "0031_force_password_reset",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1771300032000,
+      "tag": "0032_task_network_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1771300033000,
+      "tag": "0033_default_3phase_workflow",
+      "breakpoints": true
+    }
+  ]
+}

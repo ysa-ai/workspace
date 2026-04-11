@@ -1,0 +1,32 @@
+{
+  "name": "@ysa-ai/agent",
+  "version": "0.1.11",
+  "private": false,
+  "type": "module",
+  "bin": {
+    "ysa-agent": "./dist/index.js"
+  },
+  "files": [
+    "dist/index.js",
+    "install.sh"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outfile dist/index.js --target bun --external @ysa-ai/ysa",
+    "build:assets": "bun scripts/prepare-container.ts",
+    "restore:assets": "bun scripts/restore-container.ts",
+    "build:binary": "bun run build:assets && bun build --compile --target=bun-darwin-arm64 src/index.ts --outfile dist/ysa-agent-darwin-arm64 && bun build --compile --target=bun-darwin-x64 src/index.ts --outfile dist/ysa-agent-darwin-x64 && bun build --compile --target=bun-linux-arm64 src/index.ts --outfile dist/ysa-agent-linux-arm64 && bun build --compile --target=bun-linux-x64 src/index.ts --outfile dist/ysa-agent-linux-x64 && bun run restore:assets",
+    "prepublishOnly": "bun run build",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src/"
+  },
+  "dependencies": {
+    "@ysa-ai/ysa": "0.4.0",
+    "@ysa-ai/shared": "workspace:*",
+    "commander": "^13.1.0",
+    "consola": "^3.4.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.8",
+    "typescript": "^5.8.3"
+  }
+}

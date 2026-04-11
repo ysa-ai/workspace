@@ -1,0 +1,39 @@
+# ysa platform
+
+> Multi-tenant SaaS platform for orchestrating AI agents in total security. Agents run locally in hardened containers on the developer's machine — not in the cloud. Built on ysa, an open source container runtime for AI agents (Apache 2.0).
+
+ysa platform lets development teams automate software work from GitHub and GitLab issues. An AI agent picks up an issue, runs in a hardened Podman container on the developer's machine, writes code, and opens a merge or pull request. The platform handles orchestration, team management, and workflow customization. Container security is handled entirely by ysa — open source, auditable.
+
+## What it does
+
+- Connects to GitHub and GitLab — browse issues directly from the dashboard, agent opens MR/PR automatically
+- Customizable multi-step workflows — define your own steps, tool allowlists, prompts, and human review gates per step
+- Hardened containers — rootless Podman, seccomp whitelist, read-only root filesystem, no host kernel exposure
+- MITM network proxy — all agent network traffic is logged and filtered, making exfiltration extremely difficult
+- Team and organization management — invite teammates, assign roles, share workflows and tool presets across the org
+- Multiple LLM providers — Claude (Anthropic) and Mistral, configured per project
+- Encrypted key storage — API keys encrypted at rest, injected into the container only at runtime, never logged
+- Real-time feedback — live logs, network monitor, resource metrics during agent runs
+
+## How it differs from other tools
+
+Unlike cloud-based AI coding tools (Claude.ai, ChatGPT, Cursor, GitHub Copilot), ysa platform runs every agent locally in a hardened container. The host kernel is never exposed. All network requests are proxied and logged. Developers keep full control over what the agent can do at each workflow step. The LLM API (Claude, Mistral) is called directly from the developer's machine using their own key — the platform never proxies model calls.
+
+## Security model
+
+Container security is provided by ysa (github.com/ysa-ai/ysa), not the platform itself:
+- Rootless Podman containers per task
+- seccomp whitelist (~190 syscalls), --cap-drop ALL, read-only root filesystem
+- MITM network proxy (L7): GET-only in strict mode, domain allowlist, rate limits
+- OCI network hook (L3/L4): iptables enforcement in container network namespace
+- Git sandbox wrapper: blocks dangerous git config (hooks, SSH, credentials)
+
+## Status
+
+Beta. Running on real production codebases. The security model is solid. The product surface is still evolving.
+
+## Links
+
+- [Landing page](https://ysa.run): Product overview
+- [ysa open source](https://github.com/ysa-ai/ysa): Container runtime the platform is built on (Apache 2.0)
+- [Sign up](https://ysa.run/app/signup): Early access — no waitlist, no credit card

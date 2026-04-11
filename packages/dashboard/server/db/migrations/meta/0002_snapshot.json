@@ -1,0 +1,96 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "prevId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "tables": {
+    "issues": {
+      "name": "issues",
+      "columns": {
+        "id": { "name": "id", "type": "integer", "primaryKey": true, "notNull": true, "autoincrement": true },
+        "issue_id": { "name": "issue_id", "type": "integer", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "phase": { "name": "phase", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "status": { "name": "status", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "session_id": { "name": "session_id", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "pid": { "name": "pid", "type": "integer", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "plan_summary": { "name": "plan_summary", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "mr_url": { "name": "mr_url", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "error": { "name": "error", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "failure_reason": { "name": "failure_reason", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "issue_url": { "name": "issue_url", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "started_at": { "name": "started_at", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "finished_at": { "name": "finished_at", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "created_at": { "name": "created_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" },
+        "updated_at": { "name": "updated_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" }
+      },
+      "indexes": { "issues_issue_id_unique": { "name": "issues_issue_id_unique", "columns": ["issue_id"], "isUnique": true } },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "plans": {
+      "name": "plans",
+      "columns": {
+        "id": { "name": "id", "type": "integer", "primaryKey": true, "notNull": true, "autoincrement": true },
+        "issue_id": { "name": "issue_id", "type": "integer", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "content": { "name": "content", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "created_at": { "name": "created_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" },
+        "updated_at": { "name": "updated_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" }
+      },
+      "indexes": { "plans_issue_id_unique": { "name": "plans_issue_id_unique", "columns": ["issue_id"], "isUnique": true } },
+      "foreignKeys": { "plans_issue_id_issues_issue_id_fk": { "name": "plans_issue_id_issues_issue_id_fk", "tableFrom": "plans", "tableTo": "issues", "columnsFrom": ["issue_id"], "columnsTo": ["issue_id"], "onDelete": "no action", "onUpdate": "no action" } },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "phase_prompts": {
+      "name": "phase_prompts",
+      "columns": {
+        "id": { "name": "id", "type": "integer", "primaryKey": true, "notNull": true, "autoincrement": true },
+        "issue_id": { "name": "issue_id", "type": "integer", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "phase": { "name": "phase", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "content": { "name": "content", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "created_at": { "name": "created_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" }
+      },
+      "indexes": {},
+      "foreignKeys": { "phase_prompts_issue_id_issues_issue_id_fk": { "name": "phase_prompts_issue_id_issues_issue_id_fk", "tableFrom": "phase_prompts", "tableTo": "issues", "columnsFrom": ["issue_id"], "columnsTo": ["issue_id"], "onDelete": "no action", "onUpdate": "no action" } },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_criteria": {
+      "name": "qa_criteria",
+      "columns": {
+        "id": { "name": "id", "type": "integer", "primaryKey": true, "notNull": true, "autoincrement": true },
+        "issue_id": { "name": "issue_id", "type": "integer", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "data": { "name": "data", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "created_at": { "name": "created_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" },
+        "updated_at": { "name": "updated_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" }
+      },
+      "indexes": { "qa_criteria_issue_id_unique": { "name": "qa_criteria_issue_id_unique", "columns": ["issue_id"], "isUnique": true } },
+      "foreignKeys": { "qa_criteria_issue_id_issues_issue_id_fk": { "name": "qa_criteria_issue_id_issues_issue_id_fk", "tableFrom": "qa_criteria", "tableTo": "issues", "columnsFrom": ["issue_id"], "columnsTo": ["issue_id"], "onDelete": "no action", "onUpdate": "no action" } },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "results": {
+      "name": "results",
+      "columns": {
+        "id": { "name": "id", "type": "integer", "primaryKey": true, "notNull": true, "autoincrement": true },
+        "issue_id": { "name": "issue_id", "type": "integer", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "data": { "name": "data", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "created_at": { "name": "created_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false, "default": "(datetime('now'))" }
+      },
+      "indexes": { "results_issue_id_unique": { "name": "results_issue_id_unique", "columns": ["issue_id"], "isUnique": true } },
+      "foreignKeys": { "results_issue_id_issues_issue_id_fk": { "name": "results_issue_id_issues_issue_id_fk", "tableFrom": "results", "tableTo": "issues", "columnsFrom": ["issue_id"], "columnsTo": ["issue_id"], "onDelete": "no action", "onUpdate": "no action" } },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": { "schemas": {}, "tables": {}, "columns": {} },
+  "internal": { "indexes": {} }
+}

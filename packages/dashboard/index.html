@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ysa</title>
+  <script src="/client/theme-init.js"></script>
+  <style>
+    #splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: inherit;
+      z-index: 9999;
+      transition: opacity 0.2s ease;
+    }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: rgba(255,255,255,0.5);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="splash"><div class="spinner"></div></div>
+  <div id="root"></div>
+  <script type="module" src="/client/main.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+DASHBOARD="$REPO_ROOT/packages/dashboard"
+AGENT="$REPO_ROOT/packages/agent"
+
+echo "▶ pre-push: running tests..."
+
+cd "$DASHBOARD" && bun test --env-file .env.test --preload ./test-preload.ts server/lib/ server/trpc/ client/ && bun test --env-file .env.test --preload ./test-preload.ts server/ws/
+cd "$AGENT" && bun test src/
+
+echo "✓ pre-push: all tests passed"

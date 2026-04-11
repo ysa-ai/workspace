@@ -1,0 +1,36 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${DASHBOARD_PORT:-3333}:3333"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@postgres:5432/ysa
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:3333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ysa
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pg-data:

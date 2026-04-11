@@ -1,0 +1,11 @@
+.git
+.ysa
+node_modules
+packages/agent/src
+packages/agent/node_modules
+packages/agent/dist
+packages/dashboard/node_modules
+packages/shared/node_modules
+packages/dashboard/dist
+**/*.log
+.env

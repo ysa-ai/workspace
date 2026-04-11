@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./client/*"],
+      "@server/*": ["./server/*"]
+    }
+  },
+  "include": ["client", "server"],
+  "references": [
+    { "path": "../shared" }
+  ]
+}
