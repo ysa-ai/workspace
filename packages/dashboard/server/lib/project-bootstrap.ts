@@ -161,9 +161,6 @@ export async function getProjectConfig(projectId: string | null, userId?: number
       resolvedIssueSourceToken = (ack.data as any)?.key ?? null;
     } catch {}
   }
-  if (!resolvedIssueSourceToken && row.issue_source_token) {
-    resolvedIssueSourceToken = decrypt(row.issue_source_token, config.masterKey);
-  }
 
   const orgBase: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken"> = {
     projectId: row.project_id,
