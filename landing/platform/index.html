@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ysa — your secure agent. Orchestrate AI agents in total security, runs locally. The platform for developers who won't compromise on security or data sovereignty. Connect GitHub or GitLab, build custom workflows, let the agent ship.">
+  <meta name="description" content="ysa: your secure agent. Open source workflow orchestrator for AI agents. Zero-config local setup or self-host on a VPS with team features. Connect GitHub or GitLab, build custom workflows, let the agent ship.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://ysa.run/">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ysa.run/">
-  <meta property="og:site_name" content="ysa platform">
-  <meta property="og:title" content="ysa platform — your secure agent. Orchestrate AI agents in total security">
-  <meta property="og:description" content="ysa — your secure agent. The platform for developers who won't compromise on security or data sovereignty. Hardened containers, customizable workflows, GitHub and GitLab integration. Runs locally.">
+  <meta property="og:site_name" content="ysa workspace">
+  <meta property="og:title" content="ysa workspace: open source AI agent orchestrator">
+  <meta property="og:description" content="ysa: your secure agent. Open source workflow orchestrator for AI agents. Zero-config local setup or self-host on a VPS with team features. Hardened containers, customizable workflows, GitHub and GitLab integration.">
 
   <!-- Twitter Card -->
   <meta property="og:image" content="https://ysa.run/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ysa platform — your secure agent. Orchestrate AI agents in total security">
-  <meta name="twitter:description" content="ysa — your secure agent. The platform for developers who won't compromise on security or data sovereignty. Hardened containers, customizable workflows, GitHub and GitLab integration. Runs locally.">
+  <meta name="twitter:title" content="ysa workspace: open source AI agent orchestrator">
+  <meta name="twitter:description" content="ysa: your secure agent. Open source workflow orchestrator for AI agents. Zero-config local setup or self-host on a VPS with team features. Hardened containers, customizable workflows, GitHub and GitLab integration.">
   <meta name="twitter:image" content="https://ysa.run/og-image.png">
 
   <!-- JSON-LD -->
@@ -26,17 +26,12 @@
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "ysa platform",
+    "name": "ysa workspace",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Linux",
-    "description": "Multi-tenant SaaS platform for orchestrating AI agents in hardened containers. Customizable workflows, GitHub and GitLab integration, team management. Built on ysa — open source container runtime for AI agents.",
+    "description": "Open source workflow orchestrator for AI agents. Runs locally with zero config or self-host on a VPS with team features. Customizable workflows, GitHub and GitLab integration, hardened containers. Built on ysa.",
     "url": "https://ysa.run",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "EUR",
-      "description": "Beta — free early access"
-    },
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "isBasedOn": {
       "@type": "SoftwareApplication",
       "name": "ysa",
@@ -47,7 +42,7 @@
   </script>
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230D1117'/><text x='50' y='72' font-family='system-ui,sans-serif' font-size='64' font-weight='800' fill='%233B82F6' text-anchor='middle'>y</text></svg>">
-  <title>ysa platform — Orchestrate AI agents in total security</title>
+  <title>ysa workspace: open source AI agent orchestrator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -689,7 +684,7 @@
     .footer-links a { color: var(--dim); text-decoration: none; font-size: 0.8125rem; transition: color 0.15s; }
     .footer-links a:hover { color: var(--text); }
 
-    /* Responsive — tablet */
+    /* Responsive: tablet */
     @media (max-width: 1024px) {
       .hero { grid-template-columns: 1fr; gap: 3rem; padding: 4rem 2rem; }
       .hero-sub { max-width: 100%; }
@@ -705,14 +700,14 @@
       .faq-section { padding: 4rem 2rem; }
     }
 
-    /* Responsive — hide nav links */
+    /* Responsive: hide nav links */
     @media (max-width: 768px) {
       nav { padding: 0.875rem 1.25rem; }
       .nav-links { display: none; }
       .btn-ghost-sm { display: none; }
     }
 
-    /* Responsive — mobile */
+    /* Responsive: mobile */
     @media (max-width: 640px) {
       .hero { padding: 3rem 1.25rem 2.5rem; }
       .hero-actions { flex-direction: column; }
@@ -749,17 +744,17 @@
 
   <nav>
     <div class="nav-left">
-      <a href="/" class="nav-logo">ysa <span>platform</span></a>
+      <a href="/" class="nav-logo">ysa <span>workspace</span></a>
       <ul class="nav-links">
         <li><a href="#features">features</a></li>
         <li><a href="#faq">faq</a></li>
-        <li><a href="#">docs</a></li>
-        <li><a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">github</a></li>
+        <li><a href="https://github.com/ysa-ai/workspace/blob/main/docs/installation.md" target="_blank" rel="noopener">docs</a></li>
+        <li><a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener">github</a></li>
       </ul>
     </div>
     <div class="nav-right">
       <a href="https://app.__APP_HOSTNAME__/signin" class="btn-ghost-sm">sign in</a>
-      <a href="https://app.__APP_HOSTNAME__/signup" class="btn-primary-sm">join beta</a>
+      <a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener" class="btn-primary-sm">get started</a>
     </div>
   </nav>
 
@@ -767,18 +762,18 @@
   <!-- Hero -->
   <section class="hero">
     <div>
-      <div class="beta-tag"><span class="beta-dot"></span> beta — early access</div>
+      <div class="beta-tag"><span class="beta-dot"></span> open source</div>
       <h1 class="hero-headline">
         Orchestrate AI agents.<br>
         In total security.<br>
         <span>Runs locally.</span>
       </h1>
       <p class="hero-sub">
-        The platform for developers who won't compromise on security or data sovereignty. Connect GitHub or GitLab, build your workflow, let the agent ship — in hardened containers you control.
+        Self-hosted workflow orchestrator for developers who won't compromise on security or data sovereignty. Run locally with zero config, or deploy on a VPS for team access. Connect GitHub or GitLab, build your workflow, let the agent ship in hardened containers you control.
       </p>
       <div class="hero-actions">
-        <a href="https://app.__APP_HOSTNAME__/signup" class="btn-primary">Join the beta</a>
-        <a href="#" class="btn-ghost">Read the docs</a>
+        <a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener" class="btn-primary">Get started</a>
+        <a href="https://github.com/ysa-ai/workspace/blob/main/docs/installation.md" target="_blank" rel="noopener" class="btn-ghost">Read the docs</a>
       </div>
     </div>
 
@@ -787,7 +782,7 @@
         <div class="dot dot-r"></div>
         <div class="dot dot-y"></div>
         <div class="dot dot-g"></div>
-        <span class="mockup-bar-title">ysa platform</span>
+        <span class="mockup-bar-title">ysa workspace</span>
       </div>
       <div class="mockup-body">
         <div class="mockup-sidebar">
@@ -828,7 +823,7 @@
             </div>
           </div>
           <div class="log-lines">
-            <div class="log-line ok">✓ plan approved — 4 files in scope</div>
+            <div class="log-line ok">✓ plan approved, 4 files in scope</div>
             <div class="log-line info">&gt; writing src/middleware/rate-limit.ts</div>
             <div class="log-line info">&gt; writing src/middleware/rate-limit.test.ts</div>
             <div class="log-line active">&gt; running test suite...</div>
@@ -846,12 +841,12 @@
         <p class="feature-eyebrow">// workflows</p>
         <h2 class="feature-title">Build the workflow your team actually follows.</h2>
         <p class="feature-desc">
-          Define your own steps, control which tools the agent can use at each one, set custom prompts per step, and decide exactly when human review is required. From quick patches to multi-phase feature delivery — your call.
+          Define your own steps, control which tools the agent can use at each one, set custom prompts per step, and decide exactly when human review is required. From quick patches to multi-phase feature delivery. Your call.
         </p>
       </div>
       <div class="feature-visual">
         <div class="visual-panel" aria-hidden="true">
-          <div class="panel-label">api-service — workflow editor</div>
+          <div class="panel-label">api-service / workflow editor</div>
           <div class="wf-steps">
             <div class="wf-step">
               <span class="wf-num">01</span>
@@ -887,7 +882,7 @@
         <p class="feature-eyebrow">// integrations</p>
         <h2 class="feature-title">GitHub and GitLab. Your issues, our agent.</h2>
         <p class="feature-desc">
-          Browse issues directly from the dashboard. The agent picks one up, analyzes it, executes the changes, and opens a merge or pull request — no copy-pasting, no manual handoff. Blocker relationships are respected: linked issues unblock automatically when their dependency closes.
+          Browse issues directly from the dashboard. The agent picks one up, analyzes it, executes the changes, and opens a merge or pull request. No copy-pasting, no manual handoff. Blocker relationships are respected: linked issues unblock automatically when their dependency closes.
         </p>
       </div>
       <div class="feature-visual">
@@ -912,7 +907,7 @@
               <div class="int-provider gh">GH</div>
               <div class="int-info">
                 <div class="int-name">acme-corp / mobile</div>
-                <div class="int-meta">#44 blocked by #41 · — waiting</div>
+                <div class="int-meta">#44 blocked by #41 · waiting</div>
               </div>
             </div>
           </div>
@@ -925,12 +920,12 @@
         <p class="feature-eyebrow">// security</p>
         <h2 class="feature-title">Security powered by ysa.<br>Open source, auditable.</h2>
         <p class="feature-desc">
-          Every container runs on <a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">ysa</a> — the open source container runtime we built specifically for AI agents, Apache 2.0. A MITM proxy sits between the agent and the internet: GET-only in strict mode, domain allowlist, rate limits. Exfiltrating your code or credentials is made extremely difficult — even if the agent is instructed to. Keys are encrypted at rest and injected only at runtime.
+          Every container runs on <a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">ysa</a>, the open source container runtime we built specifically for AI agents, Apache 2.0. A MITM proxy sits between the agent and the internet: GET-only in strict mode, domain allowlist, rate limits. Exfiltrating your code or credentials is made extremely difficult, even if the agent is instructed to. Keys are encrypted at rest and injected only at runtime.
         </p>
       </div>
       <div class="feature-visual">
         <div class="visual-panel" aria-hidden="true">
-          <div class="panel-label">network log — issue #312</div>
+          <div class="panel-label">network log / issue #312</div>
           <div class="proxy-rows">
             <div class="proxy-row"><span class="allow">ALLOW</span><span class="proxy-method">GET</span><span class="proxy-url">api.anthropic.com/v1/messages</span></div>
             <div class="proxy-row"><span class="allow">ALLOW</span><span class="proxy-method">GET</span><span class="proxy-url">registry.npmjs.org/express-rate-limit</span></div>
@@ -952,7 +947,7 @@
       </div>
       <div class="feature-visual">
         <div class="visual-panel" aria-hidden="true">
-          <div class="panel-label">acme-corp — members</div>
+          <div class="panel-label">acme-corp / members</div>
           <div class="org-grid">
             <div class="org-card">
               <div class="org-avatar" style="background:rgba(59,130,246,0.15);color:#3B82F6;">JM</div>
@@ -997,27 +992,27 @@
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>ysa stands for <em>your secure agent</em> — a name that reflects the two things we care about most: that the agent works for you, on your machine, with your code. And that security isn't optional.</p>
+            <p>ysa stands for <em>your secure agent</em>, a name that reflects the two things we care about most: that the agent works for you, on your machine, with your code. And that security isn't optional.</p>
           </div>
         </div>
 
         <div class="faq-item">
           <div class="faq-question" role="button" tabindex="0">
-            How does this compare to Claude.ai, ChatGPT, or Cursor?
+            How do I run it?
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>Those tools send your prompt to a cloud API and run the agent outside any security boundary — your filesystem, network, and host kernel are exposed with no guardrails. ysa platform runs agents in hardened containers on your machine: isolated, auditable, and under your control. Same state-of-the-art models, fundamentally different trust model.</p>
+            <p>Clone the repo, run <code>bun install &amp;&amp; bun run dev</code>, and you're up. The workspace server and dashboard start locally with zero additional configuration, no external services required. For a persistent team setup, deploy it on any VPS: the same codebase supports multi-user organizations, invites, and shared workflows out of the box. See the <a href="https://github.com/ysa-ai/workspace/blob/main/docs/installation.md" target="_blank" rel="noopener">README</a> for full setup instructions.</p>
           </div>
         </div>
 
         <div class="faq-item">
           <div class="faq-question" role="button" tabindex="0">
-            Do you host the containers in the cloud?
+            Is there a hosted version?
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>No. Containers run entirely on your machine — your code, your infra, your control. If demand for cloud-hosted execution grows, that's something we'll look into. For now, local is the point.</p>
+            <p>Yes. <a href="https://ysa.run" target="_blank" rel="noopener">ysa.run</a> is the hosted version if you want to get started without any setup. The self-hosted path is always available too: clone the repo and run locally in one command, or deploy on a VPS for your team.</p>
           </div>
         </div>
 
@@ -1027,7 +1022,7 @@
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>No. The agent runs locally in Podman containers on your machine or your own infra. Your codebase stays where it is. The only external calls are to the LLM API (using your own key) and to GitHub or GitLab for issue fetching and MR/PR creation — both of which you already trust with your code. And yes, fully air-gapped if you use a self-hosted LLM — coming soon.</p>
+            <p>No. The agent runs in Podman containers on your machine or your own server. Your codebase stays where it is. The only external calls are to the LLM API (using your own key) and to GitHub or GitLab for issue fetching and MR/PR creation, both of which you already trust with your code.</p>
           </div>
         </div>
 
@@ -1037,7 +1032,7 @@
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>Keys can be set at two levels. At the organization level, they're stored encrypted in the platform database, decrypted and injected into the container only at runtime — so the whole team shares one key without each member having to configure their own. At the personal level, keys stay on your machine — never stored on our servers. No reason to create risk if you don't need to share them across the org. The platform itself never calls the LLM API; the agent running on your machine does, using your key directly.</p>
+            <p>There are two kinds of keys. Integration tokens (for issue sources like GitHub or GitLab) are stored encrypted in the workspace database and used only to fetch issues. AI provider keys (Anthropic, Mistral) are configured directly on the agent and never stored on or sent to the server. The server never calls the LLM API. The agent running on your machine does, using your key directly.</p>
           </div>
         </div>
 
@@ -1047,17 +1042,17 @@
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>No. Each issue gets an isolated git worktree on a dedicated branch. The agent works in complete isolation from your main branch. Nothing merges without you reviewing and approving the MR or PR. A git wrapper inside the container also strips dangerous git config options — hooks, SSH proxy, credential helpers — to prevent abuse.</p>
+            <p>No. Each issue gets an isolated git worktree on a dedicated branch. The agent works in complete isolation from your main branch. Nothing merges without you reviewing and approving the MR or PR. A git wrapper inside the container also strips dangerous git config options (hooks, SSH proxy, credential helpers) to prevent abuse.</p>
           </div>
         </div>
 
         <div class="faq-item">
           <div class="faq-question" role="button" tabindex="0">
-            What's the difference between ysa and ysa platform?
+            What's the difference between ysa and ysa workspace?
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p><a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">ysa</a> is a container runtime for AI agents — the security backbone any orchestration layer can build on. Hardened Podman containers, MITM network proxy, seccomp profiles, CLI and a clean API. It is and will stay focused on that one job. ysa platform is the orchestration layer built on top: multi-tenancy, GitHub and GitLab integration, customizable workflows, and team management. All container security comes from ysa.</p>
+            <p><a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">ysa</a> is the open source container runtime for AI agents: the security backbone. Hardened Podman containers, MITM network proxy, seccomp profiles, CLI and a clean API. It stays focused on that one job. <a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener">ysa workspace</a> is the open source orchestration layer built on top: issue workflow automation, GitHub and GitLab integration, customizable workflows, and team management. Both are open source. All container security comes from ysa.</p>
           </div>
         </div>
 
@@ -1067,7 +1062,7 @@
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>Claude (Anthropic) and Mistral today, with multiple models available for each. You configure the provider and model per project. Support for self-hosted and local models is on the roadmap — we know sovereignty means not depending on third-party APIs for everyone.</p>
+            <p>Claude (Anthropic) and Mistral today, with multiple models available for each. You configure the provider and model per project. Support for self-hosted and local models is on the roadmap.</p>
           </div>
         </div>
 
@@ -1077,7 +1072,7 @@
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>ysa platform is in beta — but it's already running on real production codebases. The security model is solid. The product surface is still evolving: expect rough edges and fast iteration. We're looking for developers willing to run it on real projects and give honest feedback.</p>
+            <p>Yes, it's already running on real production codebases. The security model is solid. The product surface is still evolving: expect fast iteration and occasional rough edges. Open an issue or PR on <a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener">GitHub</a> if you hit something.</p>
           </div>
         </div>
 
@@ -1087,7 +1082,7 @@
             <span class="faq-chevron">▾</span>
           </div>
           <div class="faq-answer">
-            <p>A web application lets you access your dashboard from any machine without installation or updates — open a browser, you're in. It also means a single codebase to maintain and evolve, rather than separate native apps per platform. That said, if there's strong demand for a native desktop experience down the road, it's something worth considering.</p>
+            <p>A web application works the same whether you're running locally or hosting on a VPS for your team. Open a browser, you're in. Team members can access a shared instance without installing anything. Single codebase, runs everywhere.</p>
           </div>
         </div>
 
@@ -1099,12 +1094,12 @@
   <div class="oss-section">
     <div class="oss-left">
       <p class="oss-eyebrow">// open source</p>
-      <h2 class="oss-title">The security layer is auditable.<br>Every line of it.</h2>
+      <h2 class="oss-title">Both layers are open source.<br>Read every line.</h2>
       <p class="oss-desc">
-        ysa is a container runtime for AI agents — and nothing else. Its job is to be the security backbone that any orchestration layer can build on top of. Read the seccomp profile, the MITM proxy, the OCI hooks. Fork it. Build on it. We did.
+        ysa workspace is open source and self-hostable. The security backbone it runs on, <a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">ysa</a>, is open source too. Read the seccomp profile, the MITM proxy, the OCI hooks. Fork it. Deploy it. Own it.
       </p>
     </div>
-    <a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener" class="btn-oss">→ github.com/ysa-ai/ysa</a>
+    <a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener" class="btn-oss">→ github.com/ysa-ai/workspace</a>
   </div>
 
   </main>
@@ -1113,17 +1108,17 @@
   <footer>
     <div class="footer-cta">
       <div>
-        <div class="beta-tag" style="margin-bottom:1.25rem;"><span class="beta-dot"></span> beta — limited access</div>
-        <h2 class="footer-headline">Start orchestrating.<br>No shared infra. No compromise.</h2>
-        <p class="footer-sub">We're accepting a limited number of early users. Sign up and start running issues today — no waitlist, no credit card.</p>
+        <div class="beta-tag" style="margin-bottom:1.25rem;"><span class="beta-dot"></span> open source</div>
+        <h2 class="footer-headline">Start orchestrating.<br>Your infra. Your rules.</h2>
+        <p class="footer-sub">Clone the repo and run locally in under a minute. Deploy on a VPS to give your team shared access. Apache 2.0.</p>
       </div>
-      <a href="https://app.__APP_HOSTNAME__/signup" class="btn-primary">Join the beta</a>
+      <a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener" class="btn-primary">Get started</a>
     </div>
     <div class="footer-bottom">
-      <span class="footer-copy">ysa platform — beta · built on <a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">ysa open source</a></span>
+      <span class="footer-copy">ysa workspace, open source · built on <a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">ysa</a></span>
       <ul class="footer-links">
-        <li><a href="https://github.com/ysa-ai/ysa" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="#">docs</a></li>
+        <li><a href="https://github.com/ysa-ai/workspace" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://github.com/ysa-ai/workspace/blob/main/docs/installation.md" target="_blank" rel="noopener">docs</a></li>
         <li><a href="https://app.__APP_HOSTNAME__/signin">sign in</a></li>
       </ul>
     </div>
