@@ -183,13 +183,12 @@ app.get("/", (c) => c.redirect("/app"));
 
 if (process.env.NODE_ENV === "production") {
   const distDir = join(import.meta.dir, "..", "dist");
-  app.get("/app/assets/*", async (c) => {
-    const assetName = c.req.path.slice("/app/assets/".length);
-    const file = Bun.file(join(distDir, "assets", assetName));
-    if (await file.exists()) return new Response(file);
-    return c.notFound();
-  });
   app.get("/app/*", async (c) => {
+    const relPath = c.req.path.slice("/app".length);
+    if (relPath && relPath !== "/") {
+      const file = Bun.file(join(distDir, relPath));
+      if (await file.exists()) return new Response(file);
+    }
     return new Response(Bun.file(join(distDir, "index.html")));
   });
 } else {

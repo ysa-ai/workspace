@@ -4,10 +4,10 @@ import { trpc } from "../trpc";
 import { useToast } from "./Toast";
 import { OrgMembersSection } from "./OrgMembersSection";
 import { WorkflowsSection } from "./ProjectSettingsPanel/sections/shared/WorkflowsSection";
+import { WorkflowBuilder } from "./WorkflowBuilder";
 
 interface Props {
   onClose: () => void;
-  onOpenWorkflowBuilder?: (id: number | null) => void;
 }
 
 const NAV_ITEMS = [
@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { id: "workflows", label: "Workflows" },
 ];
 
-export function OrgSettingsPanel({ onClose, onOpenWorkflowBuilder }: Props) {
+export function OrgSettingsPanel({ onClose }: Props) {
   const { user, orgs, deleteOrg } = useAuth();
   const showToast = useToast();
   const utils = trpc.useUtils();
@@ -25,6 +25,8 @@ export function OrgSettingsPanel({ onClose, onOpenWorkflowBuilder }: Props) {
   const isOwner = currentOrg?.role === "owner";
 
   const [activeSection, setActiveSection] = useState("general");
+  // undefined = closed, null = new workflow, number = edit existing
+  const [workflowBuilderTarget, setWorkflowBuilderTarget] = useState<number | null | undefined>(undefined);
   const [name, setName] = useState(currentOrg?.name ?? "");
   const [saving, setSaving] = useState(false);
   const [deleteStep, setDeleteStep] = useState<"idle" | "confirm">("idle");
@@ -59,6 +61,16 @@ export function OrgSettingsPanel({ onClose, onOpenWorkflowBuilder }: Props) {
       showToast(err.message ?? "Failed to delete organization", "error");
       setDeleting(false);
     }
+  }
+
+  if (workflowBuilderTarget !== undefined) {
+    return (
+      <WorkflowBuilder
+        workflowId={workflowBuilderTarget}
+        onSaved={() => setWorkflowBuilderTarget(undefined)}
+        onClose={() => setWorkflowBuilderTarget(undefined)}
+      />
+    );
   }
 
   return (
@@ -104,8 +116,8 @@ export function OrgSettingsPanel({ onClose, onOpenWorkflowBuilder }: Props) {
               projectId={null}
               currentWorkflowId={null}
               isAdminOrOwner={isOwner}
-              onEdit={(id) => onOpenWorkflowBuilder?.(id)}
-              onNew={() => onOpenWorkflowBuilder?.(null)}
+              onEdit={(id) => setWorkflowBuilderTarget(id)}
+              onNew={() => setWorkflowBuilderTarget(null)}
             />
           ) : (
             <>
