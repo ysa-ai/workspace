@@ -51,6 +51,12 @@ export async function cleanupProjectArtifacts(): Promise<void> {
   }
 }
 
+async function isPodmanAvailable(): Promise<boolean> {
+  const proc = Bun.spawn(["podman", "info"], { stdout: "ignore", stderr: "ignore" });
+  await proc.exited;
+  return proc.exitCode === 0;
+}
+
 export async function initContainerFiles(onLog?: (line: string) => void, onVerbose?: (line: string) => void): Promise<void> {
   if (Object.keys(assetPaths).length === 0) return;
 
@@ -67,6 +73,11 @@ export async function initContainerFiles(onLog?: (line: string) => void, onVerbo
   }
 
   setContainerDir(CACHE_DIR);
+
+  if (!await isPodmanAvailable()) {
+    onLog?.("Podman is not available — skipping image check. Start Podman to run sandboxed tasks.");
+    return;
+  }
 
   const baseImages = ["sandbox-claude", "sandbox-mistral", "sandbox-proxy"];
   const anyMissing = (await Promise.all(baseImages.map(imageExists))).some((e) => !e);

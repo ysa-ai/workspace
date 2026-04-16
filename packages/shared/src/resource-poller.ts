@@ -1,3 +1,4 @@
+import { cpus } from "os";
 import type { ContainerMetrics, ContainerPeak, ResourceMetrics } from "./protocol";
 
 const WARN_MEM_PCT = 85;
@@ -9,6 +10,16 @@ const isDarwin = process.platform === "darwin";
 const peakByContainer = new Map<string, number>();
 let previousNames = new Set<string>();
 
+// CPU: store last snapshot for delta calculation — no subprocess needed
+let lastCpuSnapshot: { idle: number; total: number } | null = null;
+
+// Memory: cache total RAM (never changes at runtime)
+let cachedTotalMemMb: number | null = null;
+
+// Podman machine state cache — skip expensive SSH calls when machine is stopped
+let podmanMachineRunning: boolean | null = null;
+let podmanMachineCheckedAt = 0;
+const PODMAN_MACHINE_TTL_MS = 60_000;
 
 async function exec(cmd: string): Promise<string> {
   const proc = Bun.spawn(["sh", "-c", cmd], {
@@ -25,6 +36,40 @@ async function execTimeout(cmd: string, ms: number): Promise<string | null> {
     exec(cmd),
     new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
   ]);
+}
+
+function getCpuSnapshot(): { idle: number; total: number } {
+  let idle = 0, total = 0;
+  for (const cpu of cpus()) {
+    for (const [key, val] of Object.entries(cpu.times)) {
+      total += val;
+      if (key === "idle") idle += val;
+    }
+  }
+  return { idle, total };
+}
+
+function getHostCpuPct(): number {
+  const snap = getCpuSnapshot();
+  let pct = 0;
+  if (lastCpuSnapshot) {
+    const dTotal = snap.total - lastCpuSnapshot.total;
+    const dIdle = snap.idle - lastCpuSnapshot.idle;
+    if (dTotal > 0) pct = Math.round(((dTotal - dIdle) / dTotal) * 1000) / 10;
+  }
+  lastCpuSnapshot = snap;
+  return pct;
+}
+
+async function isPodmanMachineRunning(): Promise<boolean> {
+  const now = Date.now();
+  if (podmanMachineRunning !== null && now - podmanMachineCheckedAt < PODMAN_MACHINE_TTL_MS) {
+    return podmanMachineRunning;
+  }
+  const raw = await execTimeout("podman machine list --format '{{.Running}}' 2>/dev/null", 2000);
+  podmanMachineRunning = raw?.includes("true") ?? false;
+  podmanMachineCheckedAt = now;
+  return podmanMachineRunning;
 }
 
 async function getContainerNames(): Promise<string[]> {
@@ -66,43 +111,23 @@ async function getContainerStats(names: string[]): Promise<ContainerMetrics[]> {
     });
 }
 
-async function getHostCpuPct(): Promise<number> {
-  if (isDarwin) {
-    const raw = await exec("top -l 1 -s 0 2>/dev/null | head -4");
-    const match = raw.match(/CPU usage:\s+([\d.]+)%\s+user,\s+([\d.]+)%\s+sys/);
-    if (match) return Math.round((parseFloat(match[1]) + parseFloat(match[2])) * 10) / 10;
-    return 0;
-  }
-  const snap = async () => {
-    const raw = await exec("head -1 /proc/stat 2>/dev/null");
-    const parts = raw.split(/\s+/).slice(1).map(Number);
-    const idle = parts[3] ?? 0;
-    const total = parts.reduce((a, b) => a + b, 0);
-    return { idle, total };
-  };
-  const s1 = await snap();
-  await new Promise((r) => setTimeout(r, 200));
-  const s2 = await snap();
-  const dTotal = s2.total - s1.total;
-  const dIdle = s2.idle - s1.idle;
-  if (dTotal === 0) return 0;
-  return Math.round(((dTotal - dIdle) / dTotal) * 1000) / 10;
-}
-
 async function getHostMemory(): Promise<{ used_mb: number; total_mb: number; mem_source: "vm" | "host" }> {
   if (isDarwin) {
-    const vmRaw = await execTimeout("podman machine ssh -- free -m 2>/dev/null", 3000);
-    if (vmRaw) {
-      const match = vmRaw.match(/^Mem:\s+(\d+)\s+(\d+)/m);
-      if (match) {
-        return { total_mb: parseInt(match[1], 10), used_mb: parseInt(match[2], 10), mem_source: "vm" };
+    if (await isPodmanMachineRunning()) {
+      const vmRaw = await execTimeout("podman machine ssh -- free -m 2>/dev/null", 3000);
+      if (vmRaw) {
+        const match = vmRaw.match(/^Mem:\s+(\d+)\s+(\d+)/m);
+        if (match) {
+          return { total_mb: parseInt(match[1], 10), used_mb: parseInt(match[2], 10), mem_source: "vm" };
+        }
       }
     }
-    const [vmStatRaw, totalRaw] = await Promise.all([
-      exec("vm_stat"),
-      exec("sysctl -n hw.memsize"),
-    ]);
-    const total_mb = Math.round(parseInt(totalRaw, 10) / 1024 / 1024);
+
+    if (cachedTotalMemMb === null) {
+      const totalRaw = await exec("sysctl -n hw.memsize");
+      cachedTotalMemMb = Math.round(parseInt(totalRaw, 10) / 1024 / 1024);
+    }
+    const vmStatRaw = await exec("vm_stat");
     const pageSize = parseInt(vmStatRaw.match(/page size of (\d+)/)?.[1] || "16384", 10);
     const get = (label: string) => {
       const m = vmStatRaw.match(new RegExp(`${label}:\\s+(\\d+)`));
@@ -112,7 +137,7 @@ async function getHostMemory(): Promise<{ used_mb: number; total_mb: number; mem
     const wired = get("Pages wired down");
     const compressed = get("Pages occupied by compressor");
     const used_mb = Math.round(((active + wired + compressed) * pageSize) / 1024 / 1024);
-    return { used_mb, total_mb, mem_source: "host" };
+    return { used_mb, total_mb: cachedTotalMemMb, mem_source: "host" };
   }
 
   const raw = await exec("free -m 2>/dev/null");
@@ -123,10 +148,12 @@ async function getHostMemory(): Promise<{ used_mb: number; total_mb: number; mem
 
 async function getDiskFreeGb(): Promise<number> {
   if (isDarwin) {
-    const vmRaw = await execTimeout("podman machine ssh -- df -BG / 2>/dev/null", 3000);
-    if (vmRaw) {
-      const match = vmRaw.match(/\n\S+\s+\S+\s+\S+\s+(\d+)G/);
-      if (match) return parseInt(match[1], 10);
+    if (await isPodmanMachineRunning()) {
+      const vmRaw = await execTimeout("podman machine ssh -- df -BG / 2>/dev/null", 3000);
+      if (vmRaw) {
+        const match = vmRaw.match(/\n\S+\s+\S+\s+\S+\s+(\d+)G/);
+        if (match) return parseInt(match[1], 10);
+      }
     }
     const raw = await exec(`df -g "${process.env.HOME || "/"}" 2>/dev/null`);
     const match = raw.match(/\n\S+\s+\d+\s+\d+\s+(\d+)/);
@@ -138,12 +165,13 @@ async function getDiskFreeGb(): Promise<number> {
 }
 
 export async function pollResourceMetrics(): Promise<Omit<ResourceMetrics, "capacity">> {
-  const [names, hostCpu, hostMem, diskFreeGb] = await Promise.all([
+  const [names, hostMem, diskFreeGb] = await Promise.all([
     getContainerNames(),
-    getHostCpuPct(),
     getHostMemory(),
     getDiskFreeGb(),
   ]);
+
+  const hostCpu = getHostCpuPct();
 
   const containers = await getContainerStats(names);
   const currentNames = new Set(names);
