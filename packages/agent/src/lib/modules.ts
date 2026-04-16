@@ -12,7 +12,7 @@ Do NOT use \`gh\`, \`curl\`, \`WebFetch\`, or any other method to read the issue
 1. **Stage files** — use \`git add <specific files>\` only. Never \`git add .\` or \`git add -A\`.
 2. **Commit** — write a clear, descriptive commit message explaining what changed and why. No AI attribution of any kind.
 3. **Rebase** — run \`git fetch origin && git rebase origin/main\` before pushing.
-4. **Push** — use the \`{MCP_PUSH_FILES}\` MCP tool. Do NOT use \`git push\`.
+4. **Push** — use the \`{MCP_PUSH_FILES}\` MCP tool with \`{MCP_PUSH_ARGS}\`. Do NOT use \`git push\`.
 5. **Open {PR_TERM}** — use the \`{MCP_CREATE_PR}\` MCP tool targeting the default branch.`,
 
   unit_tests: `Write unit tests covering every significant change you implemented, then run the full test suite.

@@ -125,6 +125,7 @@ export async function composePrompt(
 
   let mcpIssueArgs = `issue_iid: "${issueId}"`;
   let mcpCommentsArgs = `issue_iid: "${issueId}"`;
+  let mcpPushArgs = "";
   if (config.issueUrlTemplate) {
     try {
       const urlStr = config.issueUrlTemplate.replace("{id}", issueId);
@@ -133,10 +134,12 @@ export async function composePrompt(
         const parts = url.pathname.split("/").filter(Boolean);
         mcpIssueArgs = `owner: "${parts[0] ?? ""}", repo: "${parts[1] ?? ""}", issue_number: ${issueId}`;
         mcpCommentsArgs = mcpIssueArgs;
+        mcpPushArgs = `owner: "${parts[0] ?? ""}", repo: "${parts[1] ?? ""}"`;
       } else {
         const projectPath = url.pathname.split("/-/")[0]?.replace(/^\//, "") ?? "";
         mcpIssueArgs = `project_id: "${projectPath}", issue_iid: "${issueId}"`;
         mcpCommentsArgs = mcpIssueArgs;
+        mcpPushArgs = `project_id: "${projectPath}"`;
       }
     } catch {
       // keep defaults
@@ -151,6 +154,7 @@ export async function composePrompt(
     .replaceAll("{MCP_COMMENTS_ARGS}", mcpCommentsArgs)
     .replaceAll("{MCP_GET_FILE_CONTENTS}", gh ? "mcp__github__get_file_contents" : "mcp__gitlab__get_file_contents")
     .replaceAll("{MCP_PUSH_FILES}", gh ? "mcp__github__push_files" : "mcp__gitlab__push_files")
+    .replaceAll("{MCP_PUSH_ARGS}", mcpPushArgs)
     .replaceAll("{MCP_CREATE_PR}", gh ? "mcp__github__create_pull_request" : "mcp__gitlab__create_merge_request")
     .replaceAll("{MCP_CREATE_COMMENT}", gh ? "mcp__github__create_issue_comment" : "mcp__gitlab__create_note")
     .replaceAll("{PR_TERM}", gh ? "pull request" : "merge request")
