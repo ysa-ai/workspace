@@ -246,6 +246,13 @@
       "when": 1771300034000,
       "tag": "0034_drop_user_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1771300035000,
+      "tag": "0035_seed_builtin_tool_presets",
+      "breakpoints": true
     }
   ]
 }
