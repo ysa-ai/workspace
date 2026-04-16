@@ -5,6 +5,7 @@ import { registerInitCommand } from "./commands/init.js";
 import { registerAuthCommands } from "./commands/auth.js";
 import { registerServiceCommands } from "./commands/service.js";
 import { registerCredentialCommands } from "./commands/credential.js";
+import { registerRefineCommand } from "./commands/refine.js";
 
 const program = new Command();
 
@@ -18,5 +19,6 @@ registerInitCommand(program);
 registerAuthCommands(program);
 registerServiceCommands(program);
 registerCredentialCommands(program);
+registerRefineCommand(program);
 
 program.parse();

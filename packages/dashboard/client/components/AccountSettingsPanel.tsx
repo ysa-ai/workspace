@@ -201,50 +201,14 @@ function ProfileSection() {
 // ─── Credentials section ──────────────────────────────────────────────────────
 
 function CredentialsSection() {
-  const showToast = useToast();
-  const utils = trpc.useUtils();
-
-  // Agent credentials (local, read-only from server perspective)
-  const { data: agentData, isLoading: agentLoading, refetch: refetchAgent } = trpc.projects.listCredentials.useQuery(undefined, { refetchOnWindowFocus: false });
+  const { data: agentData, isLoading, refetch: refetchAgent } = trpc.projects.listCredentials.useQuery(undefined, { refetchOnWindowFocus: false });
   const agentCredentials = agentData?.credentials ?? [];
-
-  // Server credentials (access tokens)
-  const { data: serverData, isLoading: serverLoading, refetch: refetchServer } = trpc.projects.listServerCredentials.useQuery(undefined, { refetchOnWindowFocus: false });
-  const serverCredentials = serverData?.credentials ?? [];
-
-  const [addOpen, setAddOpen] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addProvider, setAddProvider] = useState("gitlab");
-  const [addValue, setAddValue] = useState("");
-
-  const addMutation = trpc.projects.addServerCredential.useMutation({
-    onSuccess: () => {
-      utils.projects.listServerCredentials.invalidate();
-      setAddOpen(false);
-      setAddName("");
-      setAddValue("");
-      showToast("Credential added", "success");
-    },
-    onError: (err) => showToast(err.message, "error"),
-  });
-
-  const removeMutation = trpc.projects.removeServerCredential.useMutation({
-    onSuccess: () => {
-      utils.projects.listServerCredentials.invalidate();
-      showToast("Credential removed", "success");
-    },
-    onError: (err) => showToast(err.message, "error"),
-  });
-
-  const isLoading = agentLoading || serverLoading;
-  const allEmpty = agentCredentials.length === 0 && serverCredentials.length === 0;
+  const allEmpty = agentCredentials.length === 0;
 
   return (
     <div className="space-y-6">
       <div className="p-3 rounded-lg bg-bg-inset border border-border text-[12px] text-text-muted">
-        Credentials are stored securely and never exposed in logs. AI keys are stored{" "}
-        <strong className="text-text-primary">only on your machine</strong> via the agent. Access tokens are stored{" "}
-        <strong className="text-text-primary">encrypted on the server</strong>.
+        AI credentials are stored <strong className="text-text-primary">only on your machine</strong> via the agent and never exposed in logs.
       </div>
 
       {isLoading && <p className="text-[12px] text-text-faint">Loading…</p>}
@@ -294,93 +258,8 @@ function CredentialsSection() {
             </div>
           )}
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-[12px] font-semibold text-text-muted uppercase tracking-wide">Access tokens (server)</h4>
-              <button
-                onClick={() => setAddOpen((o) => !o)}
-                className="px-3 py-1.5 rounded-lg border border-border text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors cursor-pointer"
-              >
-                {addOpen ? "Cancel" : "+ Add"}
-              </button>
-            </div>
-
-            {addOpen && (
-              <div className="mb-4 p-4 rounded-lg border border-border bg-bg-surface space-y-3">
-                <div className="flex gap-2">
-                  <input
-                    value={addName}
-                    onChange={(e) => setAddName(e.target.value)}
-                    placeholder="Name (e.g. my-gitlab-token)"
-                    className="flex-1 px-3 py-2 bg-bg border border-border rounded-lg text-[13px] text-text-primary focus:outline-none focus:border-primary transition-colors"
-                  />
-                  <select
-                    value={addProvider}
-                    onChange={(e) => setAddProvider(e.target.value)}
-                    className="px-3 py-2 bg-bg border border-border rounded-lg text-[13px] text-text-primary focus:outline-none focus:border-primary transition-colors cursor-pointer"
-                  >
-                    <option value="gitlab">GitLab</option>
-                    <option value="github">GitHub</option>
-                  </select>
-                </div>
-                <input
-                  type="password"
-                  value={addValue}
-                  onChange={(e) => setAddValue(e.target.value)}
-                  placeholder="Token value"
-                  autoComplete="new-password"
-                  className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-[13px] font-mono text-text-primary focus:outline-none focus:border-primary transition-colors"
-                />
-                <button
-                  disabled={!addName.trim() || !addValue.trim() || addMutation.isPending}
-                  onClick={() => addMutation.mutate({ name: addName.trim(), provider: addProvider, type: "access_token", value: addValue })}
-                  className="px-4 py-2 rounded-lg text-[12px] font-medium bg-primary text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                >
-                  {addMutation.isPending ? "Saving…" : "Save"}
-                </button>
-              </div>
-            )}
-
-            {serverCredentials.length > 0 && (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="border-b border-border bg-bg-inset">
-                      <th className="text-left px-4 py-2.5 font-medium text-text-muted">Name</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-text-muted">Provider</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-text-muted">Added</th>
-                      <th className="px-4 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {serverCredentials.map((c: any) => (
-                      <tr key={c.name} className="border-b border-border last:border-0">
-                        <td className="px-4 py-2.5 font-mono text-text-primary">{c.name}</td>
-                        <td className="px-4 py-2.5 text-text-muted">{c.provider}</td>
-                        <td className="px-4 py-2.5 text-text-faint">{c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}</td>
-                        <td className="px-4 py-2.5 text-right">
-                          <button
-                            onClick={() => removeMutation.mutate({ name: c.name })}
-                            disabled={removeMutation.isPending}
-                            className="text-[11px] text-err hover:text-err/70 transition-colors cursor-pointer"
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {serverCredentials.length === 0 && !addOpen && (
-              <p className="text-[12px] text-text-faint">No access tokens yet.</p>
-            )}
-          </div>
-
           <button
-            onClick={() => { refetchAgent(); refetchServer(); }}
+            onClick={() => refetchAgent()}
             className="px-3 py-1.5 rounded-lg border border-border text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors cursor-pointer"
           >
             Refresh

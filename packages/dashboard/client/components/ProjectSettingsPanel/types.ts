@@ -29,7 +29,6 @@ export interface UserFormValues {
   npmrc_path: string;
   env_vars: string;
   mcp_config: string;
-  issue_source_credential_name: string | null;
   container_memory: string;
   container_cpus: number;
   container_pids_limit: number;
@@ -72,7 +71,7 @@ export interface ProjectSettingsPanelProps {
   onCloseWorkflow?: () => void;
 }
 
-export const PERSONAL_SECTION_IDS = new Set(["paths", "access_token", "ai_settings", "container"]);
+export const PERSONAL_SECTION_IDS = new Set(["paths", "ai_settings", "container"]);
 
 export const SECTION_FIELDS: Record<string, string[]> = {
   general: ["name", "branch_prefix", "default_branch"],
@@ -81,7 +80,6 @@ export const SECTION_FIELDS: Record<string, string[]> = {
   security: ["network_policy"],
   advanced: ["worktree_files"],
   paths: ["project_root", "worktree_prefix", "npmrc_path", "env_vars", "mcp_config"],
-  access_token: ["issue_source_credential_name"],
   ai_settings: [],
   container: ["container_memory", "container_cpus", "container_pids_limit", "container_timeout"],
 };
@@ -100,7 +98,6 @@ export const SHARED_SECTIONS = [
 
 export const PERSONAL_SECTIONS = [
   { id: "paths", label: "Paths" },
-  { id: "access_token", label: "Access Token" },
   { id: "ai_settings", label: "AI Settings" },
   { id: "container", label: "Container" },
 ];
@@ -218,7 +215,6 @@ export const defaultUserValues: UserFormValues = {
   npmrc_path: "",
   env_vars: "",
   mcp_config: "",
-  issue_source_credential_name: null,
   container_memory: "4g",
   container_cpus: 2,
   container_pids_limit: 512,

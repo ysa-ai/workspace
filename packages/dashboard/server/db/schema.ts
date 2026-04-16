@@ -125,25 +125,12 @@ export const userProjectCredentialPreferences = pgTable("user_project_credential
   user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   project_id: text("project_id").notNull().references(() => projects.project_id, { onDelete: "cascade" }),
   default_credential_name: text("default_credential_name"),
-  issue_source_credential_name: text("issue_source_credential_name"),
   ai_configs: text("ai_configs"),
   phase_overrides: text("phase_overrides"),
   created_at: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
 }, (table) => ({
   uniq: uniqueIndex("user_project_cred_prefs_unique").on(table.user_id, table.project_id),
-}));
-
-export const userCredentials = pgTable("user_credentials", {
-  id: serial("id").primaryKey(),
-  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  provider: text("provider").notNull(),
-  type: text("type").notNull(),
-  encrypted_value: text("encrypted_value").notNull(),
-  created_at: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
-}, (table) => ({
-  uniq: uniqueIndex("user_credentials_unique").on(table.user_id, table.name),
 }));
 
 export const containerPeaks = pgTable("container_peaks", {

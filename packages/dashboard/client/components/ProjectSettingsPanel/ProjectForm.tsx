@@ -23,7 +23,6 @@ import { BuildSection } from "./sections/shared/BuildSection";
 import { SecuritySection } from "./sections/shared/SecuritySection";
 import { AdvancedSection } from "./sections/shared/AdvancedSection";
 import { PathsSection } from "./sections/personal/PathsSection";
-import { AccessTokenSection } from "./sections/personal/AccessTokenSection";
 import { AISettingsSection } from "./sections/personal/AISettingsSection";
 import { ContainerSection } from "./sections/shared/ContainerSection";
 
@@ -80,7 +79,6 @@ function buildUserPayload(values: UserFormValues) {
     npmrc_path: values.npmrc_path || null,
     env_vars: values.env_vars || null,
     mcp_config: values.mcp_config || null,
-    issue_source_credential_name: values.issue_source_credential_name,
     container_memory: values.container_memory || null,
     container_cpus: values.container_cpus || null,
     container_pids_limit: values.container_pids_limit || null,
@@ -131,7 +129,6 @@ export function ProjectForm({
         npmrc_path: userSettingsData.npmrc_path ?? "",
         env_vars: userSettingsData.env_vars ?? "",
         mcp_config: userSettingsData.mcp_config ?? "",
-        issue_source_credential_name: userSettingsData.issue_source_credential_name,
         container_memory: userSettingsData.container_memory ?? "4g",
         container_cpus: userSettingsData.container_cpus ?? 2,
         container_pids_limit: userSettingsData.container_pids_limit ?? 512,
@@ -333,7 +330,6 @@ export function ProjectForm({
             </FormProvider>
             <FormProvider {...userForm}>
               {activeSection === "paths" && <PathsSection />}
-              {activeSection === "access_token" && <AccessTokenSection issueSourceLabel={issueSourceLabel} />}
               {activeSection === "container" && <ContainerSection />}
             </FormProvider>
             {activeSection === "ai_settings" && editingProject && (

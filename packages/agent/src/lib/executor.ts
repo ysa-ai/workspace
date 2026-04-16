@@ -21,7 +21,6 @@ import { getProvider } from "@ysa-ai/shared";
 import { log } from "../logger";
 import { sendToDashboard, requestFromDashboard } from "../ws/send.js";
 
-const YSA_RUNTIME_URL = import.meta.resolve("@ysa-ai/ysa/runtime");
 
 const devWindowIds = new Map<string, string>();
 const activeHandles = new Map<string, TaskHandle>();
@@ -156,7 +155,8 @@ export function spawnPhase(
   };
 
   if (continueMode) {
-    const logPath = join(config.projectRoot, ".ysa", "logs", `${issueId}-${phase}.log`);
+    const compoundId = [config.orgId, config.projectId, issueId, phase].filter(Boolean).join("-");
+    const logPath = join(config.projectRoot, ".ysa", "logs", `${compoundId}.log`);
     readFile(logPath, "utf-8")
       .catch(() => "")
       .then((content) => {
@@ -509,8 +509,10 @@ export async function openTerminal(
 ) {
   let sessionId = sessionIdFallback;
 
+  const compoundId = [config.orgId, config.projectId, issueId, phase].filter(Boolean).join("-");
+
   if (phase) {
-    const logPath = join(config.projectRoot, ".ysa", "logs", `${issueId}-${phase}.log`);
+    const logPath = join(config.projectRoot, ".ysa", "logs", `${compoundId}.log`);
     if (await fileExists(logPath)) {
       const logContent = await readFile(logPath, "utf-8");
       const matches = logContent.match(/"session_id":"([^"]*)"/g);
@@ -534,8 +536,15 @@ export async function openTerminal(
   const langs = (config.languages ?? []) as DetectedLanguage[];
   const shadowDirs = getShadowDirsForLanguages(langs);
 
+  const submitToken = await requestFromDashboard<string>({
+    type: "request_submit_token",
+    taskId: Number(issueId),
+    projectId: config.projectId ?? "",
+    phase: phase ?? "",
+  });
+
   const runConfig = {
-    taskId: issueId,
+    taskId: compoundId,
     prompt: "",
     branch: `${config.branchPrefix}${issueId}`,
     projectRoot: config.projectRoot,
@@ -547,16 +556,19 @@ export async function openTerminal(
     networkPolicy: config.networkPolicy,
     worktreeFiles: config.worktreeFiles,
     shadowDirs,
+    extraEnv: { YSA_SUBMIT_TOKEN: submitToken, PROMPT_TOKEN: submitToken },
   };
 
-  const scriptPath = `/tmp/ysa-refine-${issueId}.ts`;
-  const launcherPath = `/tmp/ysa-refine-${issueId}.sh`;
-  const script = `const { runInteractive } = await import(${JSON.stringify(YSA_RUNTIME_URL)});
-await runInteractive(${JSON.stringify(runConfig)});
-`;
-
-  await writeFile(scriptPath, script, { mode: 0o644 });
-  await writeFile(launcherPath, `#!/bin/bash\nexec bun run ${scriptPath}\n`, { mode: 0o755 });
+  const configPath = `/tmp/ysa-refine-${compoundId}.json`;
+  const launcherPath = `/tmp/ysa-refine-${compoundId}.sh`;
+  await writeFile(configPath, JSON.stringify(runConfig), { mode: 0o644 });
+  const esc = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
+  // In compiled binary mode, process.argv[1] is an internal bunfs path; in script mode it's the .js file
+  const isCompiled = process.argv[1]?.includes("/$bunfs/") ?? false;
+  const launcherCmd = isCompiled
+    ? `${esc(process.execPath)} _refine-file ${esc(configPath)}`
+    : `${esc(process.execPath)} ${esc(process.argv[1] ?? "")} _refine-file ${esc(configPath)}`;
+  await writeFile(launcherPath, `#!/bin/bash\nexec ${launcherCmd}\n`, { mode: 0o755 });
   await openInTerminal(launcherPath, issueId.slice(0, 8), terminalId ?? "iterm2");
 
   return { session_id: sessionId };

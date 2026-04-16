@@ -23,7 +23,7 @@
     "@trpc/react-query": "^11.0.0",
     "@trpc/server": "^11.0.0",
     "@ysa-ai/shared": "workspace:*",
-    "@ysa-ai/ysa": "0.4.0",
+    "@ysa-ai/ysa": "0.4.1",
     "consola": "^3.4.2",
     "drizzle-orm": "^0.44.0",
     "highlight.js": "^11.11.1",

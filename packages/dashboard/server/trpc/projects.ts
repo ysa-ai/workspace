@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure as publicProcedure } from "./init";
 import { db } from "../db";
-import { projects, tasks, workflows, userProjectSettings, userProjectCredentialPreferences, userCredentials } from "../db/schema";
+import { projects, tasks, workflows, userProjectSettings, userProjectCredentialPreferences } from "../db/schema";
 import { eq, and, ne, inArray, max } from "drizzle-orm";
 import { requireProjectAccess, requireAdminRole } from "../lib/auth-guard";
 import { config } from "../config";
@@ -14,24 +14,7 @@ import type { DetectedLanguage } from "@ysa-ai/ysa/runtime";
 import { getProvider } from "@ysa-ai/shared";
 import { writeStatus, upsertStepPrompt } from "../lib/status";
 import { getProjectConfig } from "../lib/project-bootstrap";
-
-async function fetchGitlabProjectId(issueUrlTemplate: string, token: string | null | undefined): Promise<number | null> {
-  if (!issueUrlTemplate || !token) return null;
-  try {
-    const url = new URL(issueUrlTemplate.replace("{id}", "0"));
-    const parts = url.pathname.split("/-/");
-    if (parts.length < 2) return null;
-    const projectPath = parts[0].replace(/^\//, "");
-    if (!projectPath) return null;
-    const apiUrl = `${url.protocol}//${url.hostname}/api/v4/projects/${encodeURIComponent(projectPath)}`;
-    const res = await fetch(apiUrl, { headers: { "PRIVATE-TOKEN": token }, signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    const data = await res.json() as { id?: number };
-    return data.id ?? null;
-  } catch {
-    return null;
-  }
-}
+import { fetchGitlabProjectId } from "../lib/gitlab";
 
 async function pickViaAgent(userId: number, command: "pickDirectory" | "pickFile" | "pickFileOrFolder", payload: Record<string, unknown> = {}): Promise<string | null> {
   if (!isAgentConnectedForUser(userId)) throw new Error("Agent not connected — cannot open file picker");
@@ -48,7 +31,7 @@ async function validatePathViaAgent(userId: number, path: string): Promise<void>
 async function upsertCredentialPreference(
   userId: number,
   projectId: string,
-  fields: { default_credential_name?: string | null; issue_source_credential_name?: string | null; ai_configs?: string | null },
+  fields: { default_credential_name?: string | null; ai_configs?: string | null },
 ): Promise<void> {
   const condition = and(
     eq(userProjectCredentialPreferences.user_id, userId),
@@ -103,7 +86,6 @@ const userSettingsInput = z.object({
   mcp_config: z.string().nullable().optional(),
   issue_source_token: z.string().nullable().optional(),
   default_credential_name: z.string().nullable().optional(),
-  issue_source_credential_name: z.string().nullable().optional(),
   container_memory: z.string().nullable().optional(),
   container_cpus: z.number().int().positive().nullable().optional(),
   container_pids_limit: z.number().int().positive().nullable().optional(),
@@ -115,7 +97,7 @@ async function upsertUserSettings(
   projectId: string,
   input: z.infer<typeof userSettingsInput>,
 ) {
-  const { project_root, worktree_prefix, npmrc_path, env_vars, mcp_config, issue_source_token, default_credential_name, issue_source_credential_name, container_memory, container_cpus, container_pids_limit, container_timeout } = input;
+  const { project_root, worktree_prefix, npmrc_path, env_vars, mcp_config, issue_source_token, default_credential_name, container_memory, container_cpus, container_pids_limit, container_timeout } = input;
   const finalWorktreePrefix = worktree_prefix !== undefined
     ? worktree_prefix
     : (project_root ? `${project_root}/.ysa/worktrees/` : undefined);
@@ -155,9 +137,8 @@ async function upsertUserSettings(
     });
   }
 
-  const credFields: { default_credential_name?: string | null; issue_source_credential_name?: string | null } = {};
+  const credFields: { default_credential_name?: string | null } = {};
   if (default_credential_name !== undefined) credFields.default_credential_name = default_credential_name ?? null;
-  if (issue_source_credential_name !== undefined) credFields.issue_source_credential_name = issue_source_credential_name ?? null;
   if (Object.keys(credFields).length > 0) {
     await upsertCredentialPreference(userId, projectId, credFields);
   }
@@ -227,7 +208,6 @@ export const projectsRouter = router({
         mcp_config: row?.mcp_config ?? "",
         issue_source_token: row?.issue_source_token ? "" : null,
         default_credential_name: credPref?.default_credential_name ?? null,
-        issue_source_credential_name: credPref?.issue_source_credential_name ?? null,
         ai_configs: credPref?.ai_configs ?? null,
         container_memory: row?.container_memory ?? null,
         container_cpus: row?.container_cpus ?? null,
@@ -327,10 +307,7 @@ export const projectsRouter = router({
 
       if (fields.issue_url_template !== undefined) {
         const template = fields.issue_url_template ?? existing.issue_url_template;
-        const userSettings = (await db.select().from(userProjectSettings)
-          .where(and(eq(userProjectSettings.project_id, projectId), eq(userProjectSettings.user_id, ctx.userId)))
-          .limit(1))[0];
-        const encToken = userSettings?.issue_source_token;
+        const encToken = existing.issue_source_token;
         const token = encToken ? decrypt(encToken, config.masterKey) : null;
         const gitlabProjectId = await fetchGitlabProjectId(template, token);
         if (gitlabProjectId !== null) updates.gitlab_project_id = gitlabProjectId;
@@ -481,54 +458,12 @@ export const projectsRouter = router({
     .input(z.object({
       projectId: z.string(),
       defaultCredentialName: z.string().nullable().optional(),
-      issueSourceCredentialName: z.string().nullable().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       await requireProjectAccess(ctx.orgId, input.projectId);
-      const fields: { default_credential_name?: string | null; issue_source_credential_name?: string | null } = {};
+      const fields: { default_credential_name?: string | null } = {};
       if (input.defaultCredentialName !== undefined) fields.default_credential_name = input.defaultCredentialName;
-      if (input.issueSourceCredentialName !== undefined) fields.issue_source_credential_name = input.issueSourceCredentialName;
       await upsertCredentialPreference(ctx.userId, input.projectId, fields);
-      return { ok: true };
-    }),
-
-  listServerCredentials: publicProcedure.query(async ({ ctx }) => {
-    const rows = await db.select({
-      name: userCredentials.name,
-      provider: userCredentials.provider,
-      type: userCredentials.type,
-      created_at: userCredentials.created_at,
-    }).from(userCredentials).where(eq(userCredentials.user_id, ctx.userId));
-    return { credentials: rows };
-  }),
-
-  addServerCredential: publicProcedure
-    .input(z.object({
-      name: z.string().min(1),
-      provider: z.string().min(1),
-      type: z.enum(["access_token"]),
-      value: z.string().min(1),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      const existing = (await db.select({ id: userCredentials.id })
-        .from(userCredentials)
-        .where(and(eq(userCredentials.user_id, ctx.userId), eq(userCredentials.name, input.name))))[0];
-      if (existing) throw new Error(`Credential "${input.name}" already exists. Remove it first to replace.`);
-      await db.insert(userCredentials).values({
-        user_id: ctx.userId,
-        name: input.name,
-        provider: input.provider,
-        type: input.type,
-        encrypted_value: encrypt(input.value, config.masterKey),
-      });
-      return { ok: true };
-    }),
-
-  removeServerCredential: publicProcedure
-    .input(z.object({ name: z.string() }))
-    .mutation(async ({ input, ctx }) => {
-      await db.delete(userCredentials)
-        .where(and(eq(userCredentials.user_id, ctx.userId), eq(userCredentials.name, input.name)));
       return { ok: true };
     }),
 

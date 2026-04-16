@@ -3,7 +3,6 @@ import { projects, userProjectSettings, userProjectCredentialPreferences } from 
 import { config } from "../config";
 import { decrypt } from "./crypto";
 import { eq, and } from "drizzle-orm";
-import { sendCommand, isAgentConnected } from "../ws/dispatch";
 
 type UserSettingsLike = {
   project_root?: string | null;
@@ -124,7 +123,6 @@ export async function getProjectConfig(projectId: string | null, userId?: number
 
   let userSettings: UserSettingsLike | null = null;
   let defaultCredentialName: string | null = null;
-  let issueSourceCredentialName: string | null = null;
   let llmProvider = "claude";
   let llmModel: string | undefined;
   let llmMaxTurns = 60;
@@ -136,8 +134,6 @@ export async function getProjectConfig(projectId: string | null, userId?: number
 
     const credPref = (await db.select().from(userProjectCredentialPreferences)
       .where(and(eq(userProjectCredentialPreferences.user_id, userId), eq(userProjectCredentialPreferences.project_id, projectId))))[0];
-    issueSourceCredentialName = credPref?.issue_source_credential_name ?? null;
-
     if (credPref?.ai_configs) {
       try {
         const aiConfigs: AiConfigEntry[] = JSON.parse(credPref.ai_configs);
@@ -151,15 +147,6 @@ export async function getProjectConfig(projectId: string | null, userId?: number
         }
       } catch {}
     }
-  }
-
-  // Resolve issue source token: prefer locally stored credential, fall back to server-stored token
-  let resolvedIssueSourceToken: string | null = null;
-  if (issueSourceCredentialName && isAgentConnected()) {
-    try {
-      const ack = await sendCommand("getCredential", { name: issueSourceCredentialName }, 5_000);
-      resolvedIssueSourceToken = (ack.data as any)?.key ?? null;
-    } catch {}
   }
 
   const orgBase: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken"> = {
@@ -193,8 +180,5 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     containerTimeout: 3600,
   };
 
-  const result = applyUserSettings(orgBase, userSettings, row.issue_source_token, config.masterKey);
-  // If credential-based token resolved, it takes precedence
-  if (resolvedIssueSourceToken) result.issueSourceToken = resolvedIssueSourceToken;
-  return result;
+  return applyUserSettings(orgBase, userSettings, row.issue_source_token, config.masterKey);
 }

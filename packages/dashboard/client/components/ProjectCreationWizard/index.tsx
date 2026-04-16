@@ -108,6 +108,9 @@ Field guide:
 - \`devServers\`: [{name, command, port}] — look at package.json scripts, Makefile, docker-compose
 - \`worktreeFiles\`: files that must be in each git worktree (e.g. \`.env.local\`)
 - \`depsCacheFiles\`: key dep files (relative paths)
+- \`mcpConfigPath\`: absolute path on the host — use the \`$PROJECT_ROOT\` env var as prefix, e.g. \`$PROJECT_ROOT/.mcp.json\`. Run \`echo $PROJECT_ROOT\` via bash to get the value. Leave empty if no \`.mcp.json\` found
+- \`npmrcPath\`: absolute path on the host — use the \`$PROJECT_ROOT\` env var as prefix or \`~/.npmrc\` for the home dir one. Leave empty if not found
+- \`envFiles\`: relative paths from project root (e.g. \`apps/api/.env\`)
 - \`confidence\`: per-field, one of \`"high"\` (direct evidence), \`"medium"\` (inferred), \`"low"\` (guessed)
 - \`memoryLimit\`: \`"2g"\` small, \`"4g"\` medium, \`"8g"\` large monorepo
 

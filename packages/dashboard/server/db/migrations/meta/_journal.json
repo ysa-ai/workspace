@@ -239,6 +239,13 @@
       "when": 1771300033000,
       "tag": "0033_default_3phase_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1771300034000,
+      "tag": "0034_drop_user_credentials",
+      "breakpoints": true
     }
   ]
 }

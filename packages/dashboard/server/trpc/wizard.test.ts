@@ -226,28 +226,6 @@ describe("projects.updateUserSettings — personal", () => {
     expect(result.npmrc_path).toBe("/home/user/.npmrc");
   });
 
-  test("saves issue_source_credential_name to credential preferences", async () => {
-    await caller().projects.updateUserSettings({
-      projectId: TEST_PROJECT_ID,
-      issue_source_credential_name: "my-gitlab-token",
-    });
-    const result = await caller().projects.getUserSettings({ projectId: TEST_PROJECT_ID });
-    expect(result.issue_source_credential_name).toBe("my-gitlab-token");
-  });
-
-  test("clears issue_source_credential_name with null", async () => {
-    await caller().projects.updateUserSettings({
-      projectId: TEST_PROJECT_ID,
-      issue_source_credential_name: "my-gitlab-token",
-    });
-    await caller().projects.updateUserSettings({
-      projectId: TEST_PROJECT_ID,
-      issue_source_credential_name: null,
-    });
-    const result = await caller().projects.getUserSettings({ projectId: TEST_PROJECT_ID });
-    expect(result.issue_source_credential_name).toBeNull();
-  });
-
   test("partial update preserves previously saved values", async () => {
     await caller().projects.updateUserSettings({
       projectId: TEST_PROJECT_ID,
@@ -331,7 +309,6 @@ describe("wizard full flow — manual mode", () => {
     await caller().projects.updateUserSettings({
       projectId,
       env_vars: ".env",
-      issue_source_credential_name: null,
     });
 
     // Step 6: Container
