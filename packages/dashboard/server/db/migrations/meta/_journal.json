@@ -253,6 +253,20 @@
       "when": 1771300035000,
       "tag": "0035_seed_builtin_tool_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1771300036000,
+      "tag": "0036_code_repo_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1771300037000,
+      "tag": "0037_simplify_presets",
+      "breakpoints": true
     }
   ]
 }

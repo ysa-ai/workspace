@@ -168,46 +168,23 @@ describe("composePrompt", () => {
 // ─── buildAllowedToolsFromPreset ──────────────────────────────────────────
 
 describe("buildAllowedToolsFromPreset", () => {
-  test("readonly returns read-only tools", () => {
-    const tools = buildAllowedToolsFromPreset("readonly", null);
-    expect(tools).toContain("Read");
-    expect(tools).toContain("Glob");
-    expect(tools).toContain("Grep");
-    expect(tools).toContain("WebSearch");
-    expect(tools).toContain("WebFetch");
-    expect(tools).toContain("mcp__gitlab__get_issue");
-    expect(tools).not.toContain("Edit");
-    expect(tools).not.toContain(",Bash,");
+  test("builtin presets with no allowlist return empty string (all tools)", () => {
+    expect(buildAllowedToolsFromPreset("readonly", null)).toBe("");
+    expect(buildAllowedToolsFromPreset("readwrite", null)).toBe("");
+    expect(buildAllowedToolsFromPreset("custom", null)).toBe("");
   });
 
-  test("readwrite returns full tools including Edit and Bash", () => {
-    const tools = buildAllowedToolsFromPreset("readwrite", null);
-    expect(tools).toContain("Read");
-    expect(tools).toContain("Edit");
-    expect(tools).toContain("Write");
-    expect(tools).toContain(",Bash,");
-    expect(tools).toContain("mcp__gitlab__create_merge_request");
+  test("custom allowlist is passed through as-is", () => {
+    expect(buildAllowedToolsFromPreset("readonly", ["WebSearch", "WebFetch"])).toBe("WebSearch,WebFetch");
   });
 
-  test("post-execution returns review tools", () => {
-    const tools = buildAllowedToolsFromPreset("post-execution", null);
-    expect(tools).toContain("Read");
-    expect(tools).toContain("Write");
-    expect(tools).toContain("Glob");
-    expect(tools).toContain("Grep");
-    expect(tools).toContain("mcp__gitlab__update_issue");
-    expect(tools).toContain("mcp__gitlab__create_note");
-    expect(tools).not.toContain("Edit");
+  test("empty allowlist returns empty string", () => {
+    expect(buildAllowedToolsFromPreset("readonly", [])).toBe("");
   });
 
-  test("allowlist takes priority over preset", () => {
-    const tools = buildAllowedToolsFromPreset("readonly", ["Read", "Glob"]);
-    expect(tools).toBe("Read,Glob");
-  });
-
-  test("unknown preset returns fallback tools", () => {
-    const tools = buildAllowedToolsFromPreset("custom", null);
-    expect(tools).toContain("Read");
+  test("allowlist with mcp sentinel is passed through", () => {
+    const tools = buildAllowedToolsFromPreset("readonly", ["Read", "mcp__*"]);
+    expect(tools).toBe("Read,mcp__*");
   });
 });
 
@@ -229,7 +206,7 @@ describe("buildClaudeCommand", () => {
       continueMode: false,
       allowedTools: "Read,Glob",
     });
-    expect(args).toContain("--allowedTools");
+    expect(args).toContain("--tools");
     expect(args).toContain("Read,Glob");
     expect(args).toContain("--output-format");
     expect(args).toContain("stream-json");

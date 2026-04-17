@@ -15,7 +15,7 @@ const ABORT_SUFFIX = `
 ---
 ## Error handling (CRITICAL — read this last)
 
-If you encounter a blocker that prevents you from completing this phase — missing permissions, unavailable tools, network failures, MCP tool errors, or any other fundamental issue — you MUST stop immediately.
+If you encounter a blocker that prevents you from completing this phase — missing permissions, unavailable tools, network failures, or any other fundamental issue — you MUST stop immediately.
 
 **Network policy blocks are PERMANENT.** If any HTTP request returns 403 "Blocked by network policy", the request will NEVER succeed regardless of how you reformulate it. Do NOT try alternative URLs, different tools, encoding tricks, or workarounds. The network proxy enforces a strict allow-list — anything blocked is intentionally blocked.
 
@@ -24,6 +24,42 @@ If you encounter a blocker that prevents you from completing this phase — miss
 2. Do NOT try to work around it
 3. Write \`[TASK_ABORTED]: <brief reason>\` as your FINAL message
 4. Stop immediately — do not continue with other steps`;
+
+function buildIssueCommands(issueSource: "gitlab" | "github"): Record<string, string> {
+  const base = "$ISSUE_BASE_URL";
+  const pid = "$ISSUE_PROJECT_ID";
+  const iid = "$ISSUE_IID";
+
+  if (issueSource === "github") {
+    const auth = `-H "Authorization: Bearer $ISSUE_TOKEN" -H "Accept: application/vnd.github+json"`;
+    return {
+      get_issue:      `curl -s ${auth} "${base}/repos/${pid}/issues/${iid}"`,
+      list_comments:  `curl -s ${auth} "${base}/repos/${pid}/issues/${iid}/comments"`,
+      create_comment: `curl -s -X POST ${auth} -H "Content-Type: application/json" -d '{"body":"<comment>"}' "${base}/repos/${pid}/issues/${iid}/comments"`,
+      update_issue:   `curl -s -X PATCH ${auth} -H "Content-Type: application/json" -d '<JSON>' "${base}/repos/${pid}/issues/${iid}"`,
+      create_mr:      `curl -s -X POST ${auth} -H "Content-Type: application/json" -d '<JSON>' "${base}/repos/${pid}/pulls"`,
+      list_mrs:       `curl -s ${auth} "${base}/repos/${pid}/pulls?state=open"`,
+    };
+  }
+
+  // GitLab (default) — Authorization: Bearer works with PATs and passes through the container network proxy
+  const auth = `-H "Authorization: Bearer $ISSUE_TOKEN"`;
+  return {
+    get_issue:      `curl -s ${auth} "${base}/projects/${pid}/issues/${iid}"`,
+    list_comments:  `curl -s ${auth} "${base}/projects/${pid}/issues/${iid}/notes"`,
+    create_comment: `curl -s -X POST ${auth} -H "Content-Type: application/json" -d '{"body":"<comment>"}' "${base}/projects/${pid}/issues/${iid}/notes"`,
+    update_issue:   `curl -s -X PUT ${auth} -H "Content-Type: application/json" -d '<JSON>' "${base}/projects/${pid}/issues/${iid}"`,
+    create_mr:      `curl -s -X POST ${auth} -H "Content-Type: application/json" -d '<JSON>' "${base}/projects/${pid}/merge_requests"`,
+    list_mrs:       `curl -s ${auth} "${base}/projects/${pid}/merge_requests?state=opened"`,
+  };
+}
+
+// Shell script — uses $GIT_TOKEN and $ALLOWED_BRANCH env vars injected by the platform
+const GIT_PUSH_CMD = [
+  "REMOTE=$(git remote get-url origin | sed 's|^git@\\([^:]*\\):\\(.*\\)$|https://\\1/\\2|')",
+  'AUTH_REMOTE=$(echo "$REMOTE" | sed "s|https://|https://oauth2:${GIT_TOKEN}@|")',
+  'git push "$AUTH_REMOTE" "$ALLOWED_BRANCH"',
+].join("\n");
 
 export async function composePrompt(
   phase: string,
@@ -36,7 +72,7 @@ export async function composePrompt(
   let preamble = "You are running in HEADLESS MODE as a sandboxed instance. You CANNOT ask questions to the user. Execute all steps autonomously.\n\n";
   preamble += "- **Worktree** (your working copy): `{WORKTREE}`\n";
   preamble += "- **Main repo** (read-only reference): `{MAIN_REPO}`\n";
-  if (stepDef.toolPreset === "readonly") {
+  if (stepDef.containerMode === "readonly") {
     preamble += "\n> **READ-ONLY MODE** — Do NOT create, edit, or delete any files. Analyse only.\n";
   }
   preamble += "\n---\n\n";
@@ -122,43 +158,19 @@ export async function composePrompt(
   // Variable substitution — provider-specific
   const src = config.issueSource ?? "gitlab";
   const gh = src === "github";
-
-  let mcpIssueArgs = `issue_iid: "${issueId}"`;
-  let mcpCommentsArgs = `issue_iid: "${issueId}"`;
-  let mcpPushArgs = "";
-  if (config.issueUrlTemplate) {
-    try {
-      const urlStr = config.issueUrlTemplate.replace("{id}", issueId);
-      const url = new URL(urlStr);
-      if (gh) {
-        const parts = url.pathname.split("/").filter(Boolean);
-        mcpIssueArgs = `owner: "${parts[0] ?? ""}", repo: "${parts[1] ?? ""}", issue_number: ${issueId}`;
-        mcpCommentsArgs = mcpIssueArgs;
-        mcpPushArgs = `owner: "${parts[0] ?? ""}", repo: "${parts[1] ?? ""}"`;
-      } else {
-        const projectPath = url.pathname.split("/-/")[0]?.replace(/^\//, "") ?? "";
-        mcpIssueArgs = `project_id: "${projectPath}", issue_iid: "${issueId}"`;
-        mcpCommentsArgs = mcpIssueArgs;
-        mcpPushArgs = `project_id: "${projectPath}"`;
-      }
-    } catch {
-      // keep defaults
-    }
-  }
+  const cmds = buildIssueCommands(src);
 
   prompt = prompt
     .replaceAll("{ISSUE_SOURCE_NAME}", gh ? "GitHub" : "GitLab")
-    .replaceAll("{MCP_GET_ISSUE}", gh ? "mcp__github__get_issue" : "mcp__gitlab__get_issue")
-    .replaceAll("{MCP_LIST_COMMENTS}", gh ? "mcp__github__list_issue_comments" : "mcp__gitlab__list_issue_discussions")
-    .replaceAll("{MCP_ISSUE_ARGS}", mcpIssueArgs)
-    .replaceAll("{MCP_COMMENTS_ARGS}", mcpCommentsArgs)
-    .replaceAll("{MCP_GET_FILE_CONTENTS}", gh ? "mcp__github__get_file_contents" : "mcp__gitlab__get_file_contents")
-    .replaceAll("{MCP_PUSH_FILES}", gh ? "mcp__github__push_files" : "mcp__gitlab__push_files")
-    .replaceAll("{MCP_PUSH_ARGS}", mcpPushArgs)
-    .replaceAll("{MCP_CREATE_PR}", gh ? "mcp__github__create_pull_request" : "mcp__gitlab__create_merge_request")
-    .replaceAll("{MCP_CREATE_COMMENT}", gh ? "mcp__github__create_issue_comment" : "mcp__gitlab__create_note")
     .replaceAll("{PR_TERM}", gh ? "pull request" : "merge request")
-    .replaceAll("{PR_TERM_SHORT}", gh ? "PR" : "MR");
+    .replaceAll("{PR_TERM_SHORT}", gh ? "PR" : "MR")
+    .replaceAll("{ISSUE_GET_CMD}", cmds.get_issue)
+    .replaceAll("{ISSUE_COMMENTS_CMD}", cmds.list_comments)
+    .replaceAll("{COMMENT_CMD}", cmds.create_comment)
+    .replaceAll("{UPDATE_ISSUE_CMD}", cmds.update_issue)
+    .replaceAll("{MR_CREATE_CMD}", cmds.create_mr)
+    .replaceAll("{MR_LIST_CMD}", cmds.list_mrs)
+    .replaceAll("{GIT_PUSH_CMD}", GIT_PUSH_CMD);
 
   prompt += ABORT_SUFFIX;
 

@@ -4,3 +4,4 @@ export * from "./schemas";
 export * from "./log-parser";
 export { pollResourceMetrics } from "./resource-poller";
 export * from "./providers";
+export * from "./issue-providers";

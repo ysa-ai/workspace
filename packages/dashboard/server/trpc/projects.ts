@@ -85,6 +85,7 @@ const userSettingsInput = z.object({
   env_vars: z.string().nullable().optional(),
   mcp_config: z.string().nullable().optional(),
   issue_source_token: z.string().nullable().optional(),
+  code_repo_token: z.string().nullable().optional(),
   default_credential_name: z.string().nullable().optional(),
   container_memory: z.string().nullable().optional(),
   container_cpus: z.number().int().positive().nullable().optional(),
@@ -97,7 +98,7 @@ async function upsertUserSettings(
   projectId: string,
   input: z.infer<typeof userSettingsInput>,
 ) {
-  const { project_root, worktree_prefix, npmrc_path, env_vars, mcp_config, issue_source_token, default_credential_name, container_memory, container_cpus, container_pids_limit, container_timeout } = input;
+  const { project_root, worktree_prefix, npmrc_path, env_vars, mcp_config, issue_source_token, code_repo_token, default_credential_name, container_memory, container_cpus, container_pids_limit, container_timeout } = input;
   const finalWorktreePrefix = worktree_prefix !== undefined
     ? worktree_prefix
     : (project_root ? `${project_root}/.ysa/worktrees/` : undefined);
@@ -113,6 +114,8 @@ async function upsertUserSettings(
   if (mcp_config !== undefined) values.mcp_config = mcp_config;
   if (issue_source_token) values.issue_source_token = encrypt(issue_source_token, config.masterKey);
   else if (issue_source_token === null) values.issue_source_token = null;
+  if (code_repo_token) values.code_repo_token = encrypt(code_repo_token, config.masterKey);
+  else if (code_repo_token === null) values.code_repo_token = null;
   if (container_memory !== undefined) values.container_memory = container_memory;
   if (container_cpus !== undefined) values.container_cpus = container_cpus;
   if (container_pids_limit !== undefined) values.container_pids_limit = container_pids_limit;
@@ -130,6 +133,7 @@ async function upsertUserSettings(
       env_vars: (env_vars ?? null) as string | null,
       mcp_config: (mcp_config ?? null) as string | null,
       issue_source_token: (values.issue_source_token ?? null) as string | null,
+      code_repo_token: (values.code_repo_token ?? null) as string | null,
       container_memory: (container_memory ?? null) as string | null,
       container_cpus: (container_cpus ?? null) as number | null,
       container_pids_limit: (container_pids_limit ?? null) as number | null,
@@ -207,6 +211,7 @@ export const projectsRouter = router({
         env_vars: row?.env_vars ?? "",
         mcp_config: row?.mcp_config ?? "",
         issue_source_token: row?.issue_source_token ? "" : null,
+        code_repo_token: row?.code_repo_token ? "" : null,
         default_credential_name: credPref?.default_credential_name ?? null,
         ai_configs: credPref?.ai_configs ?? null,
         container_memory: row?.container_memory ?? null,

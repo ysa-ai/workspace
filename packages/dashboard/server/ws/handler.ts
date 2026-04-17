@@ -86,7 +86,7 @@ export async function pushSyncConfig(projectIds?: string[]): Promise<void> {
     for (const row of rows) {
       try {
         const cfg = await getProjectConfig(row.project_id, agentUserId ?? undefined);
-        const { llmProviderKeys: _k, issueSourceToken: _t, ...safe } = cfg as any;
+        const { llmProviderKeys: _k, issueSourceToken: _t, codeRepoToken: _c, ...safe } = cfg as any;
         configs[row.project_id] = safe;
       } catch { /* skip */ }
     }

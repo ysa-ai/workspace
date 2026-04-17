@@ -83,7 +83,7 @@ async function runDetect(id: number, config: AgentConfig, dashboardUrl: string) 
     if (key) extraEnv["ANTHROPIC_API_KEY"] = key;
   }
 
-  const allowedTools = buildAllowedToolsFromPreset("readonly", null, "gitlab");
+  const allowedTools = buildAllowedToolsFromPreset("readonly", null);
 
   const failStatus = async (err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -543,6 +543,31 @@ export async function openTerminal(
     phase: phase ?? "",
   });
 
+  const extraEnv: Record<string, string> = {
+    YSA_SUBMIT_TOKEN: submitToken,
+    PROMPT_TOKEN: submitToken,
+  };
+
+  if (config.defaultCredentialName) {
+    const { getCredentialKey } = await import("./keystore.js");
+    const key = await getCredentialKey(config.defaultCredentialName);
+    if (key) extraEnv[config.llmProvider === "mistral" ? "MISTRAL_API_KEY" : "ANTHROPIC_API_KEY"] = key;
+  }
+
+  if (config.projectId) {
+    try {
+      const projectCfg = await requestFromDashboard<Record<string, unknown>>({
+        type: "agent_request", command: "get_project_config", payload: { projectId: config.projectId },
+      });
+      const issueToken = projectCfg.issueSourceToken as string | null;
+      const codeToken = (projectCfg.codeRepoToken as string | null) ?? issueToken;
+      if (issueToken) extraEnv.ISSUE_TOKEN = issueToken;
+      if (codeToken) extraEnv.GIT_TOKEN = codeToken;
+    } catch (err) {
+      log.warn(`Could not fetch project config for token injection: ${err}`);
+    }
+  }
+
   const runConfig = {
     taskId: compoundId,
     prompt: "",
@@ -556,7 +581,7 @@ export async function openTerminal(
     networkPolicy: config.networkPolicy,
     worktreeFiles: config.worktreeFiles,
     shadowDirs,
-    extraEnv: { YSA_SUBMIT_TOKEN: submitToken, PROMPT_TOKEN: submitToken },
+    extraEnv,
   };
 
   const configPath = `/tmp/ysa-refine-${compoundId}.json`;

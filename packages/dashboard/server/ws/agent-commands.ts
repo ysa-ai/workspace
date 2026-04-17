@@ -16,7 +16,7 @@ export async function handleAgentRequest(command: string, payload: Record<string
       try {
         const snapshot = JSON.parse(state.workflow_snapshot);
         const stepId = state.current_step_id;
-        const builtinPresets = new Set(["readonly", "readwrite", "post-execution", "custom"]);
+        const builtinPresets = new Set(["readonly", "readwrite", "custom"]);
         const steps = await Promise.all((snapshot.steps ?? []).map(async (s: any) => {
           if (!builtinPresets.has(s.toolPreset) && !s.toolAllowlist) {
             const preset = (await db.select().from(toolPresets).where(eq(toolPresets.name, s.toolPreset)))[0];
@@ -33,6 +33,13 @@ export async function handleAgentRequest(command: string, payload: Record<string
           stepHistory: (() => { try { return JSON.parse(state.step_history); } catch { return []; } })(),
         });
       } catch { respond(false, undefined, "Invalid workflow snapshot"); }
+      break;
+    }
+
+    case "get_task_meta": {
+      const { taskId } = payload as { taskId: string };
+      const task = await readStatus(String(taskId));
+      respond(true, { issue_url: task?.issue_url ?? null });
       break;
     }
 

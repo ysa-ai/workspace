@@ -1,10 +1,10 @@
 // Module system instructions — injected into prompts by the platform, not user-editable.
 export const MODULE_SYSTEM_INSTRUCTIONS: Record<string, string> = {
   fetch_issue: `Fetch the issue content — do this before anything else in this step:
-1. Call \`{MCP_GET_ISSUE}\` with parameters \`{MCP_ISSUE_ARGS}\` as your very first action.
-2. Call \`{MCP_LIST_COMMENTS}\` with parameters \`{MCP_COMMENTS_ARGS}\` to retrieve all comments.
-3. Download any attachments referenced in the issue or comments.
-Do NOT use \`gh\`, \`curl\`, \`WebFetch\`, or any other method to read the issue. \`gh\` is not installed. curl to {ISSUE_SOURCE_NAME} APIs is blocked. The MCP tool is the ONLY way.`,
+1. Get the issue: \`{ISSUE_GET_CMD}\`
+2. Get the comments: \`{ISSUE_COMMENTS_CMD}\`
+3. Download any attachments referenced in the issue or comments using \`curl\`.
+Do NOT use \`gh\`, \`WebFetch\`, or any MCP tool to read the issue.`,
 
   plan: `Write a comprehensive plan document for this issue. The plan must be detailed enough that someone can execute it without re-reading the issue. Reference specific file paths, function names, and line numbers where possible. If the issue is ambiguous, make reasonable assumptions and document them.`,
 
@@ -12,8 +12,8 @@ Do NOT use \`gh\`, \`curl\`, \`WebFetch\`, or any other method to read the issue
 1. **Stage files** — use \`git add <specific files>\` only. Never \`git add .\` or \`git add -A\`.
 2. **Commit** — write a clear, descriptive commit message explaining what changed and why. No AI attribution of any kind.
 3. **Rebase** — run \`git fetch origin && git rebase origin/main\` before pushing.
-4. **Push** — use the \`{MCP_PUSH_FILES}\` MCP tool with \`{MCP_PUSH_ARGS}\`. Do NOT use \`git push\`.
-5. **Open {PR_TERM}** — use the \`{MCP_CREATE_PR}\` MCP tool targeting the default branch.`,
+4. **Push** — run \`{GIT_PUSH_CMD}\`. Do NOT use any MCP tool to push.
+5. **Open {PR_TERM}** — run \`{MR_CREATE_CMD}\`.`,
 
   unit_tests: `Write unit tests covering every significant change you implemented, then run the full test suite.
 1. **Write tests** — for every significant change, write unit tests in the appropriate test file(s). Follow the existing test patterns, naming conventions, and file structure. Cover the happy path and key edge cases. If no test files exist, create them following standard conventions for the language/framework. Tests must NOT require a running server.
@@ -32,11 +32,11 @@ Do NOT use \`gh\`, \`curl\`, \`WebFetch\`, or any other method to read the issue
   change_report: `After implementing your changes, commit them locally — do NOT push or create a pull request or merge request.
 1. **Stage files** — use \`git add <specific files>\` only. Never \`git add .\` or \`git add -A\`.
 2. **Commit** — write a clear, descriptive commit message explaining what changed and why. No AI attribution of any kind.
-3. **Do NOT push** — do not run \`git push\` and do not use any MCP tool to push files or open a PR/MR. The diff will be captured automatically from your local commit.`,
+3. **Do NOT push** — do not run \`git push\`. The diff will be captured automatically from your local commit.`,
 
   issue_update: `Update the issue according to the configured actions:
-1. **Post comment** — use \`{MCP_CREATE_COMMENT}\` with \`{MCP_COMMENTS_ARGS}\`. The comment must summarise: what was done, link to the {PR_TERM} if one was created, test results if available, and any follow-up items.
-2. **Update metadata** — apply any label or status changes specified in the configuration block below.
+1. **Post comment** — run \`{COMMENT_CMD}\` with the comment body. The comment must summarise: what was done, link to the {PR_TERM} if one was created, test results if available, and any follow-up items.
+2. **Update metadata** — apply any label or status changes specified in the configuration block below using \`{UPDATE_ISSUE_CMD}\`.
 3. Do not close the issue unless explicitly configured to do so.`,
 };
 

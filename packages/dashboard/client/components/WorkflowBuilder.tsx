@@ -13,11 +13,12 @@ interface StepModule {
 interface StepForm {
   name: string;
   slug: string;
-  toolPreset: string; // preset name — built-in or custom
+  toolPreset: string; // "readonly" | "readwrite"
   networkPolicy: NetworkPolicy;
   modules: StepModule[];
   promptTemplate: string;
   autoAdvance: boolean;
+  toolAllowlist: string[] | null;
 }
 
 // Built-in module catalog — name, label, description, default prompt, default config
@@ -101,6 +102,7 @@ const defaultStep = (): StepForm => ({
   modules: [{ name: "__prompt__", prompt: "" }],
   promptTemplate: "",
   autoAdvance: false,
+  toolAllowlist: null,
 });
 
 function slugify(name: string): string {
@@ -136,176 +138,36 @@ const NETWORK_POLICY_LABELS: Record<string, { label: string; description: string
 
 const INPUT_CLS = "w-full bg-bg-inset border border-border rounded-lg px-3 py-2 text-[13px] text-text-primary outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-all";
 
-const TOOL_REFERENCE = [
-  { group: "File system", tools: ["Read", "Edit", "Write", "Glob", "Grep"] },
-  { group: "Shell", tools: ["Bash", "Bash(git log *)", "Bash(git diff *)", "Bash(curl *)"] },
-  { group: "Web", tools: ["WebSearch", "WebFetch"] },
-  { group: "GitLab MCP", tools: ["mcp__gitlab__get_issue", "mcp__gitlab__list_issue_discussions", "mcp__gitlab__create_merge_request", "mcp__gitlab__create_branch", "mcp__gitlab__push_files", "mcp__gitlab__create_or_update_file", "mcp__gitlab__update_issue", "mcp__gitlab__create_note", "mcp__gitlab__get_file_contents", "mcp__gitlab__download_attachment"] },
-  { group: "GitHub MCP", tools: ["mcp__github__get_issue", "mcp__github__list_issue_comments", "mcp__github__create_pull_request", "mcp__github__create_branch", "mcp__github__push_files", "mcp__github__create_or_update_file", "mcp__github__update_issue", "mcp__github__create_issue_comment", "mcp__github__get_file_contents", "mcp__github__download_attachment"] },
+
+const BUILTIN_PRESETS: { name: string; description: string }[] = [
+  { name: "readonly", description: "No file changes, no git commits or pushes. Analysis only." },
+  { name: "readwrite", description: "Full git access — agent can commit and push changes." },
 ];
 
-interface ToolPresetSelectorProps {
-  presets: { id: number; name: string; description: string | null; tools: string; is_builtin: boolean }[];
-  value: string;
-  onChange: (name: string) => void;
-  onPresetsChange: () => void;
-}
-
-function ToolPresetSelector({ presets, value, onChange, onPresetsChange }: ToolPresetSelectorProps) {
-  const showToast = useToast();
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [newTools, setNewTools] = useState("");
-  const [expandedPreset, setExpandedPreset] = useState<string | null>(null);
-
-  const createPreset = trpc.toolPresets.create.useMutation({
-    onSuccess: (p) => {
-      onPresetsChange();
-      onChange(p.name);
-      setCreating(false);
-      setNewName(""); setNewDesc(""); setNewTools("");
-    },
-    onError: (err) => showToast(err.message, "error"),
-  });
-  const deletePreset = trpc.toolPresets.delete.useMutation({
-    onSuccess: () => onPresetsChange(),
-    onError: (err) => showToast(err.message, "error"),
-  });
-
-  const selected = presets.find((p) => p.name === value);
-
-  const PRESET_ORDER = ["readonly", "readwrite", "post-execution"];
-  const sortedPresets = [...presets].sort((a, b) => {
-    const ai = PRESET_ORDER.indexOf(a.name), bi = PRESET_ORDER.indexOf(b.name);
-    if (ai !== -1 && bi !== -1) return ai - bi;
-    if (ai !== -1) return -1;
-    if (bi !== -1) return 1;
-    return a.name.localeCompare(b.name);
-  });
-
+function ToolPresetSelector({ value, onChange }: { value: string; onChange: (name: string) => void }) {
   return (
     <div>
       <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Tool preset</label>
       <div className="space-y-1.5">
-        {sortedPresets.map((p) => {
+        {BUILTIN_PRESETS.map((p) => {
           const isSelected = p.name === value;
-          const isExpanded = expandedPreset === p.name;
-          const toolList = p.tools.split(",").map((t) => t.trim()).filter(Boolean);
           return (
             <div
               key={p.name}
-              className={`rounded-lg border transition-colors ${isSelected ? "border-primary/40 bg-primary/5" : "border-border bg-bg-surface"}`}
+              className={`rounded-lg border transition-colors cursor-pointer ${isSelected ? "border-primary/40 bg-primary/5" : "border-border bg-bg-surface"}`}
+              onClick={() => onChange(p.name)}
             >
-              <div className="flex items-center gap-2 px-3 py-2 cursor-pointer" onClick={() => onChange(p.name)}>
+              <div className="flex items-center gap-2 px-3 py-2">
                 <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors ${isSelected ? "border-primary bg-primary" : "border-border"}`} />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[13px] font-medium ${isSelected ? "text-primary" : "text-text-primary"}`}>{p.name}</span>
-                    {p.is_builtin ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-inset border border-border text-text-faint font-medium">built-in</span>
-                    ) : (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-inset border border-border text-text-faint font-medium">custom</span>
-                    )}
-                  </div>
-                  {p.description && <p className="text-[12px] text-text-muted mt-0.5 truncate">{p.description}</p>}
+                  <span className={`text-[13px] font-medium ${isSelected ? "text-primary" : "text-text-primary"}`}>{p.name}</span>
+                  <p className="text-[12px] text-text-muted mt-0.5">{p.description}</p>
                 </div>
-                {!p.is_builtin && (
-                  <button
-                    className="shrink-0 p-1 rounded text-text-faint hover:text-err hover:bg-err-bg transition-colors cursor-pointer"
-                    onClick={(e) => { e.stopPropagation(); if (confirm(`Delete preset "${p.name}"?`)) deletePreset.mutate({ id: p.id }); }}
-                    title="Delete preset"
-                  >
-                    <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                )}
-                <button
-                  className="shrink-0 text-text-faint hover:text-text-muted transition-colors cursor-pointer p-0.5"
-                  onClick={(e) => { e.stopPropagation(); setExpandedPreset(isExpanded ? null : p.name); }}
-                  title={isExpanded ? "Hide tools" : "Show tools"}
-                >
-                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d={isExpanded ? "M18 15l-6-6-6 6" : "M6 9l6 6 6-6"} />
-                  </svg>
-                </button>
               </div>
-              {isExpanded && (
-                <div className="px-3 pb-3 border-t border-border pt-2">
-                  <div className="flex flex-wrap gap-1">
-                    {toolList.map((t) => (
-                      <span key={t} className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-bg-inset border border-border text-text-muted">{t}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
       </div>
-
-      {/* Create new preset */}
-      {creating ? (
-        <div className="mt-2 p-3 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
-          <input className={INPUT_CLS} placeholder="Preset name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          <input className={INPUT_CLS} placeholder="Description (optional)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
-          <textarea
-            className={`${INPUT_CLS} font-mono text-[12px] min-h-16 resize-y`}
-            placeholder="Read, Edit, Bash, mcp__gitlab__get_issue"
-            value={newTools}
-            onChange={(e) => setNewTools(e.target.value)}
-          />
-          <details>
-            <summary className="text-[12px] text-text-muted cursor-pointer hover:text-text-primary select-none">Available tools reference</summary>
-            <div className="mt-2 p-2 bg-bg-inset rounded-lg border border-border space-y-2">
-              {TOOL_REFERENCE.map(({ group, tools }) => (
-                <div key={group}>
-                  <div className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1">{group}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {tools.map((t) => (
-                      <button
-                        key={t}
-                        className="font-mono px-1.5 py-0.5 rounded bg-bg-surface border border-border text-text-muted hover:text-primary hover:border-primary/30 transition-colors cursor-pointer text-[11px]"
-                        onClick={() => {
-                          const list = newTools.trim() ? newTools.split(",").map((x) => x.trim()) : [];
-                          if (!list.includes(t)) setNewTools([...list, t].join(", "));
-                        }}
-                      >{t}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
-          <div className="flex gap-2">
-            <button
-              className="px-3 py-1.5 bg-primary text-white rounded-lg text-[12px] font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50"
-              disabled={!newName.trim() || !newTools.trim() || createPreset.isPending}
-              onClick={() => createPreset.mutate({ name: newName.trim(), description: newDesc.trim() || null, tools: newTools.trim() })}
-            >
-              {createPreset.isPending ? "Creating..." : "Create preset"}
-            </button>
-            <button
-              className="px-3 py-1.5 rounded-lg border border-border text-[12px] text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-              onClick={() => { setCreating(false); setNewName(""); setNewDesc(""); setNewTools(""); }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          className="mt-2 flex items-center gap-1.5 text-[12px] text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-          onClick={() => setCreating(true)}
-        >
-          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
-          New preset
-        </button>
-      )}
-      {selected && (
-        <Hint>{selected.description ?? `Tools: ${selected.tools.split(",").slice(0, 4).join(", ")}${selected.tools.split(",").length > 4 ? "…" : ""}`}</Hint>
-      )}
     </div>
   );
 }
@@ -350,13 +212,12 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
           : [],
         promptTemplate: s.prompt_template ?? "",
         autoAdvance: !!s.auto_advance,
+        toolAllowlist: Array.isArray(s.tool_allowlist) ? s.tool_allowlist : null,
       })),
     );
     setIsDirty(false);
   }, [existingWf.data]);
 
-  const presetsQuery = trpc.toolPresets.list.useQuery();
-  const presets = presetsQuery.data ?? [];
 
   const createMutation = trpc.workflows.create.useMutation({
     onSuccess: (wf) => {
@@ -387,7 +248,7 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
       position: i,
       promptTemplate: s.promptTemplate,
       toolPreset: s.toolPreset,
-      toolAllowlist: null,
+      toolAllowlist: s.toolAllowlist && s.toolAllowlist.length > 0 ? s.toolAllowlist : null,
       containerMode: containerModeFromPreset(s.toolPreset),
       modules: s.modules,
       networkPolicy: s.networkPolicy,
@@ -592,10 +453,8 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
               <div className="grid grid-cols-3 gap-6 items-start">
                 <div className="col-span-2">
                 <ToolPresetSelector
-                  presets={presets}
                   value={current.toolPreset}
                   onChange={(name) => patchStep(selectedIdx, { toolPreset: name })}
-                  onPresetsChange={() => presetsQuery.refetch()}
                 />
                 </div>
                 <div>
@@ -618,6 +477,61 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
                   <Hint>{NETWORK_POLICY_LABELS[current.networkPolicy ?? "none"].description}</Hint>
                 </div>
               </div>
+
+              {/* Tool restrictions */}
+              {(() => {
+                const mcpEnabled = current.toolAllowlist?.some((t) => t.startsWith("mcp__")) ?? false;
+                const mcpSpecificTools = current.toolAllowlist?.filter((t) => t.startsWith("mcp__") && t !== "mcp__*").join(", ") ?? "";
+                const baseToolsStr = current.toolAllowlist?.filter((t) => !t.startsWith("mcp__")).join(", ") ?? "";
+
+                function applyAllowlist(mcpOn: boolean, mcpSpecific: string, baseTools: string) {
+                  const base = baseTools.split(",").map((t) => t.trim()).filter(Boolean);
+                  const mcp: string[] = [];
+                  if (mcpOn) {
+                    const specific = mcpSpecific.split(",").map((t) => t.trim()).filter((t) => t.startsWith("mcp__"));
+                    mcp.push(...(specific.length > 0 ? specific : ["mcp__*"]));
+                  }
+                  const all = [...base, ...mcp];
+                  patchStep(selectedIdx, { toolAllowlist: all.length > 0 ? all : null });
+                }
+
+                return (
+                  <div className="space-y-3">
+                    <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Tool restrictions</label>
+                    <div>
+                      <label className="block text-[11px] text-text-muted mb-1">Base tool restriction <span className="text-text-faint">(optional — comma-separated, e.g. <code className="font-mono">WebSearch,WebFetch,Read</code>)</span></label>
+                      <input
+                        className={INPUT_CLS}
+                        value={baseToolsStr}
+                        onChange={(e) => applyAllowlist(mcpEnabled, mcpSpecificTools, e.target.value)}
+                        placeholder="Leave empty to allow all tools"
+                      />
+                    </div>
+                    <div>
+                      <label className="flex items-center gap-2 cursor-pointer mb-2">
+                        <input
+                          type="checkbox"
+                          checked={mcpEnabled}
+                          onChange={(e) => applyAllowlist(e.target.checked, mcpSpecificTools, baseToolsStr)}
+                          className="accent-primary"
+                        />
+                        <span className="text-[13px] text-text-primary font-medium">Enable MCP tools</span>
+                      </label>
+                      {mcpEnabled && (
+                        <div>
+                          <label className="block text-[11px] text-text-muted mb-1">Restrict to specific MCP tools <span className="text-text-faint">(optional — comma-separated <code className="font-mono">mcp__server__tool</code> names)</span></label>
+                          <input
+                            className={INPUT_CLS}
+                            value={mcpSpecificTools}
+                            onChange={(e) => applyAllowlist(true, e.target.value, baseToolsStr)}
+                            placeholder="Leave empty to allow all MCP tools"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Modules full width */}
               <div>

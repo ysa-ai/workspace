@@ -62,7 +62,7 @@ export interface WorkflowStep {
   slug: string;
   name: string;
   position: number;
-  toolPreset: "readonly" | "readwrite" | "post-execution" | "custom";
+  toolPreset: "readonly" | "readwrite" | "custom";
   toolAllowlist: string[] | null;
   containerMode: "readonly" | "readwrite";
   modules: StepModule[];

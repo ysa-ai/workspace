@@ -267,6 +267,7 @@ export const userProjectSettings = pgTable("user_project_settings", {
   env_vars: text("env_vars"),
   mcp_config: text("mcp_config"),
   issue_source_token: text("issue_source_token"),
+  code_repo_token: text("code_repo_token"),
   container_memory: text("container_memory"),
   container_cpus: integer("container_cpus"),
   container_pids_limit: integer("container_pids_limit"),

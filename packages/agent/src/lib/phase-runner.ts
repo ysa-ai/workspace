@@ -14,6 +14,7 @@ import { log } from "../logger";
 import { sendToDashboard, requestFromDashboard } from "../ws/send.js";
 import { composePrompt } from "./prompt";
 import { buildAllowedToolsFromPreset } from "./tools";
+import { getIssueProvider } from "@ysa-ai/shared";
 
 export { composePrompt } from "./prompt";
 export { buildAllowedToolsFromPreset } from "./tools";
@@ -88,17 +89,24 @@ async function fetchStepDefinition(taskId: string, stepSlug: string): Promise<St
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function extractScopeFromUrl(repoUrl: string): ScopedAllowRule | null {
+function extractScopeFromUrl(repoUrl: string): ScopedAllowRule[] {
   try {
-    const url = new URL(repoUrl);
+    const normalised = repoUrl.startsWith("git@")
+      ? repoUrl.replace(/^git@([^:]+):/, "https://$1/")
+      : repoUrl;
+    const url = new URL(normalised);
     const parts = url.pathname.replace(/^\//, "").replace(/\.git$/, "").split("/").filter(Boolean);
-    if (parts.length < 2) return null;
+    if (parts.length < 2) return [];
     if (url.hostname === "github.com") {
-      return { host: "api.github.com", pathPrefix: `/repos/${parts[0]}/${parts[1]}/` };
+      return [{ host: "api.github.com", pathPrefix: `/repos/${parts[0]}/${parts[1]}/` }];
     }
-    return { host: url.hostname, pathPrefix: `/api/v4/projects/${encodeURIComponent(parts.join("/"))}/` };
+    const gitPath = url.pathname.endsWith(".git") ? url.pathname : `${url.pathname}.git`;
+    return [
+      { host: url.hostname, pathPrefix: `/api/v4/projects/${encodeURIComponent(parts.join("/"))}/` },
+      { host: url.hostname, pathPrefix: `${gitPath}/` },
+    ];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -203,7 +211,7 @@ export async function runPhase(
   const containerDashboardUrl = dashboardUrl.replace(/localhost|127\.0\.0\.1/, "host.containers.internal");
 
   const stepDef = await fetchStepDefinition(taskId, phase);
-  const allowedTools = buildAllowedToolsFromPreset(stepDef.toolPreset, stepDef.toolAllowlist, config.issueSource ?? "gitlab");
+  const allowedTools = buildAllowedToolsFromPreset(stepDef.toolPreset, stepDef.toolAllowlist);
 
   const submitToken = await requestFromDashboard<string>({
     type: "request_submit_token",
@@ -243,8 +251,7 @@ export async function runPhase(
       scopedRules.push({ host: providerScope.host, pathPrefix: `/api/v4/projects/${config.gitlabProjectId}/` });
     }
     if (config.codeRepoUrl) {
-      const repoScope = extractScopeFromUrl(config.codeRepoUrl);
-      if (repoScope) scopedRules.push(repoScope);
+      scopedRules.push(...extractScopeFromUrl(config.codeRepoUrl));
     }
   }
 
@@ -277,6 +284,46 @@ export async function runPhase(
     const { getCredentialKey } = await import("./keystore.js");
     const key = await getCredentialKey(config.defaultCredentialName);
     if (key) extraEnv[config.llmProvider === "mistral" ? "MISTRAL_API_KEY" : "ANTHROPIC_API_KEY"] = key;
+  }
+
+  if (config.projectId) {
+    try {
+      const projectCfg = await requestFromDashboard<Record<string, unknown>>({
+        type: "agent_request", command: "get_project_config", payload: { projectId: config.projectId },
+      });
+      const issueToken = projectCfg.issueSourceToken as string | null;
+      const codeToken = (projectCfg.codeRepoToken as string | null) ?? issueToken;
+      const issueSource = (projectCfg.issueSource as string | null) ?? config.issueSource ?? "gitlab";
+      const issueUrlTemplate = (projectCfg.issueUrlTemplate as string | null) ?? config.issueUrlTemplate ?? "";
+
+      if (issueToken) extraEnv.ISSUE_TOKEN = issueToken;
+      if (codeToken && stepDef.containerMode === "readwrite") extraEnv.GIT_TOKEN = codeToken;
+
+      try {
+        const meta = await requestFromDashboard<{ issue_url: string | null }>({
+          type: "agent_request", command: "get_task_meta", payload: { taskId },
+        });
+        const issueUrl = meta.issue_url;
+        if (issueUrl) {
+          const iid = issueUrl.split("/").filter(Boolean).pop() ?? taskId;
+          extraEnv.ISSUE_IID = iid;
+        } else {
+          extraEnv.ISSUE_IID = taskId;
+        }
+      } catch {
+        extraEnv.ISSUE_IID = taskId;
+      }
+
+      if (issueUrlTemplate) {
+        try {
+          const adapter = getIssueProvider(issueSource);
+          extraEnv.ISSUE_BASE_URL = adapter.baseUrl(issueUrlTemplate);
+          extraEnv.ISSUE_PROJECT_ID = adapter.projectId(issueUrlTemplate);
+        } catch {}
+      }
+    } catch (err) {
+      log.warn(`Could not fetch project config for token injection: ${err}`);
+    }
   }
 
   if (networkPolicy === "strict") {
@@ -325,18 +372,28 @@ export async function runPhase(
         log.info(`Sandbox exited for task #${taskId} (${phase}): ${result.status}`);
 
         try {
-          const mcpPath = join(worktree, ".mcp.json");
-          const mcpRaw = await readFile(mcpPath, "utf-8");
-          const mcpCfg = JSON.parse(mcpRaw);
           const secrets: string[] = [];
-          for (const server of Object.values(mcpCfg.mcpServers ?? {})) {
-            const s = server as any;
-            if (s.env && typeof s.env === "object") {
-              for (const val of Object.values(s.env)) {
-                if (typeof val === "string" && val.length >= 8) secrets.push(val);
+
+          const tokenKeys = ["ISSUE_TOKEN", "GIT_TOKEN", "ANTHROPIC_API_KEY", "MISTRAL_API_KEY"];
+          for (const key of tokenKeys) {
+            const val = extraEnv[key];
+            if (val && val.length >= 8) secrets.push(val);
+          }
+
+          try {
+            const mcpPath = join(worktree, ".mcp.json");
+            const mcpRaw = await readFile(mcpPath, "utf-8");
+            const mcpCfg = JSON.parse(mcpRaw);
+            for (const server of Object.values(mcpCfg.mcpServers ?? {})) {
+              const s = server as any;
+              if (s.env && typeof s.env === "object") {
+                for (const val of Object.values(s.env)) {
+                  if (typeof val === "string" && val.length >= 8) secrets.push(val);
+                }
               }
             }
-          }
+          } catch {}
+
           if (secrets.length > 0 && await fileExists(result.log_path)) {
             let logContent = await readFile(result.log_path, "utf-8");
             for (const secret of secrets) logContent = logContent.replaceAll(secret, "******");

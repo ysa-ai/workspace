@@ -11,6 +11,7 @@ type UserSettingsLike = {
   env_vars?: string | null;
   mcp_config?: string | null;
   issue_source_token?: string | null;
+  code_repo_token?: string | null;
   container_memory?: string | null;
   container_cpus?: number | null;
   container_pids_limit?: number | null;
@@ -53,6 +54,7 @@ export type ProjectConfig = {
   defaultCredentialName: string | null;
   issueSource: "gitlab" | "github";
   issueSourceToken: string | null;
+  codeRepoToken: string | null;
   defaultBranch?: string;
   codeRepoUrl?: string;
   gitlabProjectId?: number;
@@ -64,7 +66,7 @@ export type ProjectConfig = {
 };
 
 export function applyUserSettings(
-  base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken">,
+  base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken">,
   userSettings: UserSettingsLike | null | undefined,
   orgToken: string | null | undefined,
   masterKey: string,
@@ -72,6 +74,10 @@ export function applyUserSettings(
   let issueSourceToken: string | null = null;
   if (orgToken) issueSourceToken = decrypt(orgToken, masterKey);
   if (userSettings?.issue_source_token) issueSourceToken = decrypt(userSettings.issue_source_token, masterKey);
+
+  const codeRepoToken: string | null = userSettings?.code_repo_token
+    ? decrypt(userSettings.code_repo_token, masterKey)
+    : null;
 
   return {
     ...base,
@@ -81,6 +87,7 @@ export function applyUserSettings(
     envFiles: userSettings?.env_vars ? userSettings.env_vars.split(",").map((s: string) => s.trim()) : [],
     mcpConfig: userSettings?.mcp_config ?? null,
     issueSourceToken,
+    codeRepoToken,
     containerMemory: userSettings?.container_memory ?? base.containerMemory,
     containerCpus: userSettings?.container_cpus ?? base.containerCpus,
     containerPidsLimit: userSettings?.container_pids_limit ?? base.containerPidsLimit,
@@ -89,7 +96,7 @@ export function applyUserSettings(
 }
 
 export async function getProjectConfig(projectId: string | null, userId?: number): Promise<ProjectConfig> {
-  const base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken"> = {
+  const base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken"> = {
     branchPrefix: "fix/",
     issueUrlTemplate: "",
     port: config.port,
@@ -149,7 +156,7 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     }
   }
 
-  const orgBase: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken"> = {
+  const orgBase: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken"> = {
     projectId: row.project_id,
     orgId: row.org_id ? String(row.org_id) : undefined,
     branchPrefix: row.branch_prefix,
