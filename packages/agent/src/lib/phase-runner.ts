@@ -344,7 +344,9 @@ export async function runPhase(
     : undefined;
 
   return new Promise(async (resolve, reject) => {
-    const handle = await runTask({
+    let handle: TaskHandle;
+    try {
+      handle = await runTask({
       taskId: [config.orgId, config.projectId, taskId, phase].filter(Boolean).join("-"),
       prompt: "",
       branch,
@@ -401,9 +403,17 @@ export async function runPhase(
           }
         } catch {}
 
-        const finalStatus: RunPhaseResult["status"] = result.status === "completed" ? "step_done" : "failed";
-        const error = result.error;
-        const failureReason = result.failure_reason;
+        let finalStatus: RunPhaseResult["status"] = result.status === "completed" ? "step_done" : "failed";
+        let error = result.error;
+        let failureReason = result.failure_reason;
+
+        if (result.status === "completed" && !result.session_id) {
+          finalStatus = "failed";
+          failureReason = "infrastructure";
+          error = config.llmProvider === "claude"
+            ? "Claude exited without starting a session. Run 'claude /login' to re-authenticate."
+            : "Agent exited without starting a session. Check your provider credentials.";
+        }
 
         let planSummary: string | null = null;
         let mrUrl: string | null = null;
@@ -469,10 +479,14 @@ export async function runPhase(
       },
       onError: (err) => reject(err),
     });
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+      return;
+    }
 
-    onHandle?.(handle);
+    onHandle?.(handle!);
 
-    if (handle.shadowVolumes.length > 0 && config.projectId) {
+    if (handle!.shadowVolumes.length > 0 && config.projectId) {
       sendToDashboard({ type: "store_deps_volumes", taskId, volumes: handle.shadowVolumes });
       tryCleanOldDepsVolumes(config.projectId, handle.shadowVolumes).catch(() => {});
     }

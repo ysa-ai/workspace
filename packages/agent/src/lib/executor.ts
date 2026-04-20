@@ -143,6 +143,11 @@ export function spawnPhase(
     phase = args[1];
   }
 
+  if (activeHandles.has(issueId)) {
+    log.warn(`Task #${issueId} already running, ignoring duplicate launch`);
+    return;
+  }
+
   const failStatus = (err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     log.error(`spawnPhase error for task #${issueId}:`, message);
@@ -268,7 +273,6 @@ export async function runInit(
       await prepareWorktree(worktree, config.projectRoot, config.envFiles, config.mcpConfig, config.worktreeFiles);
 
       await writeInitLog(initLogPath, "section", "Container init");
-      log.info(`Launching ${firstStepSlug} for task #${id}`);
       spawnPhase([String(id), firstStepSlug], config, dashboardUrl);
     } catch (e: any) {
       log.error(`Init error for task #${id}:`, e);

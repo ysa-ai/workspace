@@ -14,13 +14,13 @@
     "build": "bun build src/index.ts --outfile dist/index.js --target bun --external @ysa-ai/ysa",
     "build:assets": "bun scripts/prepare-container.ts",
     "restore:assets": "bun scripts/restore-container.ts",
-    "build:binary": "bun run build:assets && bun build --compile --target=bun-darwin-arm64 src/index.ts --outfile dist/ysa-agent-darwin-arm64 && bun build --compile --target=bun-darwin-x64 src/index.ts --outfile dist/ysa-agent-darwin-x64 && bun build --compile --target=bun-linux-arm64 src/index.ts --outfile dist/ysa-agent-linux-arm64 && bun build --compile --target=bun-linux-x64 src/index.ts --outfile dist/ysa-agent-linux-x64 && bun run restore:assets",
+    "build:binary": "bun run build:assets && bun build --compile --minify --target=bun-darwin-arm64 src/index.ts --outfile dist/ysa-agent-darwin-arm64 && bun build --compile --minify --target=bun-darwin-x64 src/index.ts --outfile dist/ysa-agent-darwin-x64 && bun build --compile --minify --target=bun-linux-arm64 src/index.ts --outfile dist/ysa-agent-linux-arm64 && bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile dist/ysa-agent-linux-x64 && bun run restore:assets",
     "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
     "test": "bun test src/"
   },
   "dependencies": {
-    "@ysa-ai/ysa": "0.4.1",
+    "@ysa-ai/ysa": "0.4.3",
     "@ysa-ai/shared": "workspace:*",
     "commander": "^13.1.0",
     "consola": "^3.4.2"

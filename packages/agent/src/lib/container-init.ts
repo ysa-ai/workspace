@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync } from "fs";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
 import { setContainerDir, buildBaseImages } from "@ysa-ai/ysa/runtime";
 import { assetPaths } from "../container-assets";
 import pkg from "../../package.json";
@@ -58,7 +58,14 @@ async function isPodmanAvailable(): Promise<boolean> {
 }
 
 export async function initContainerFiles(onLog?: (line: string) => void, onVerbose?: (line: string) => void): Promise<void> {
-  if (Object.keys(assetPaths).length === 0) return;
+  if (Object.keys(assetPaths).length === 0) {
+    const runtimePath = Bun.resolveSync("@ysa-ai/ysa/runtime", import.meta.dir);
+    const containerDir = resolve(dirname(runtimePath), "..", "container");
+    if (existsSync(resolve(containerDir, "sandbox-run.sh"))) {
+      setContainerDir(containerDir);
+    }
+    return;
+  }
 
   const cachedVersion = existsSync(VERSION_FILE)
     ? (await Bun.file(VERSION_FILE).text()).trim()
