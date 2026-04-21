@@ -6,7 +6,7 @@ import pkg from "../../package.json";
 
 export const AGENT_VERSION: string = pkg.version;
 
-const CACHE_DIR = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "container");
+export const CACHE_DIR = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "container");
 const CA_DIR = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "proxy-ca");
 const VERSION_FILE = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "version");
 
