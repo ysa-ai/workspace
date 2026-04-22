@@ -375,6 +375,7 @@ export const projectsRouter = router({
         }
       }
 
+      pushSyncConfig([projectId]).catch(() => {});
       const project = (await db.select().from(projects).where(eq(projects.project_id, projectId)))[0]!;
       return { project, buildTriggered };
     }),
