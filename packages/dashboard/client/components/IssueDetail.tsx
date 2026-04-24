@@ -9,7 +9,7 @@ const PlanSection = lazy(() => import("./PlanTab").then((m) => ({ default: m.Pla
 const IssueUpdateSection = lazy(() => import("./modules/IssueUpdateSection").then((m) => ({ default: m.IssueUpdateSection })));
 import { LogSection } from "./LogViewer";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { formatActiveTime, useLiveTick } from "../lib/format";
+import { formatActiveTime, useLiveTick, displayTaskId } from "../lib/format";
 import { trpc } from "../trpc";
 import { useToast } from "./Toast";
 import type { TaskData } from "./IssueRow";
@@ -96,9 +96,11 @@ export function IssueDetail({ issue, onOpenTerminal, onChangeTerminal, initialSt
     onError: (err) => showToast(err.message, "error"),
   });
 
+  const tid = displayTaskId(issue.task_id, issue.source_type);
+
   const continueMutation = trpc.actions.continue.useMutation({
     onSuccess: () => {
-      showToast(`Task #${issue.task_id}: resuming session`, "success");
+      showToast(`Task ${tid}: resuming session`, "success");
       utils.tasks.invalidate();
     },
     onError: (err) => showToast(err.message, "error"),
@@ -106,7 +108,7 @@ export function IssueDetail({ issue, onOpenTerminal, onChangeTerminal, initialSt
 
   const relaunchMutation = trpc.actions.relaunch.useMutation({
     onSuccess: () => {
-      showToast(`Task #${issue.task_id}: relaunching phase`, "success");
+      showToast(`Task ${tid}: relaunching phase`, "success");
       utils.tasks.invalidate();
     },
     onError: (err) => showToast(err.message, "error"),
@@ -114,7 +116,7 @@ export function IssueDetail({ issue, onOpenTerminal, onChangeTerminal, initialSt
 
   const stopMutation = trpc.actions.stop.useMutation({
     onSuccess: () => {
-      showToast(`Task #${issue.task_id}: session stopped`, "success");
+      showToast(`Task ${tid}: session stopped`, "success");
       utils.tasks.invalidate();
     },
     onError: (err) => showToast(err.message, "error"),

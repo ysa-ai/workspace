@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Stepper } from "./Stepper";
-import { formatDuration, useLiveTick } from "../lib/format";
+import { formatDuration, useLiveTick, displayTaskId } from "../lib/format";
 import { trpc } from "../trpc";
 import { useToast } from "./Toast";
 import { useAuth } from "../AuthProvider";
@@ -69,9 +69,11 @@ export function TaskRow({ issue, selected, focused, onSelect, issueUrlTemplate }
   const myRole = orgs.find((o) => o.id === user?.orgId)?.role ?? "member";
   const canDelete = myRole === "owner" || myRole === "admin" || issue.created_by === user?.id;
 
+  const tid = displayTaskId(issue.task_id, issue.source_type);
+
   const cleanupMutation = trpc.actions.cleanup.useMutation({
     onSuccess: () => {
-      showToast(`Task #${issue.task_id}: archived`, "success");
+      showToast(`Task ${tid}: archived`, "success");
       utils.tasks.invalidate();
     },
     onError: (err) => showToast(err.message, "error"),
@@ -79,7 +81,7 @@ export function TaskRow({ issue, selected, focused, onSelect, issueUrlTemplate }
 
   const deleteMutation = trpc.actions.delete.useMutation({
     onSuccess: () => {
-      showToast(`Task #${issue.task_id}: deleted`, "success");
+      showToast(`Task ${tid}: deleted`, "success");
       utils.tasks.invalidate();
     },
     onError: (err) => showToast(err.message, "error"),
@@ -201,8 +203,8 @@ export function TaskRow({ issue, selected, focused, onSelect, issueUrlTemplate }
           </p>
           <p className="text-[12px] text-text-muted mb-4">
             {confirmAction === "delete"
-              ? `Task #${issue.task_id} and all its data will be permanently removed.`
-              : `Task #${issue.task_id} will be archived and its worktree cleaned up.`}
+              ? `Task ${tid} and all its data will be permanently removed.`
+              : `Task ${tid} will be archived and its worktree cleaned up.`}
           </p>
           <div className="flex justify-end gap-2">
             <button

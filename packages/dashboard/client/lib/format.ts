@@ -71,6 +71,13 @@ const STATUS_ORDER = [
   "cleaned_up",
 ];
 
+const PROMPT_TASK_ID_OFFSET = 100_000_000;
+
+export function displayTaskId(taskId: number, sourceType: string | null | undefined): string {
+  if (sourceType === "prompt") return `#${taskId - PROMPT_TASK_ID_OFFSET}`;
+  return `#${taskId}`;
+}
+
 export function statusSortOrder(s: string): number {
   const idx = STATUS_ORDER.indexOf(s);
   return idx === -1 ? STATUS_ORDER.length : idx;
