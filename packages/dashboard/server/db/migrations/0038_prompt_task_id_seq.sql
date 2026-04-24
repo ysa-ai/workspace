@@ -1,0 +1,1 @@
+CREATE SEQUENCE prompt_task_id_seq START WITH 100000000;

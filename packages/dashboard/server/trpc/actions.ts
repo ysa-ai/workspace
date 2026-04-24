@@ -13,7 +13,7 @@ import {
 } from "../lib/status";
 import { db } from "../db";
 import { tasks, workflows, workflowSteps, workflowTransitions, projects, userProjectSettings } from "../db/schema";
-import { eq, asc, max, and } from "drizzle-orm";
+import { eq, asc, and, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { requireTaskAccess, requireTaskDeleteAccess } from "../lib/auth-guard";
 
@@ -82,9 +82,8 @@ export const actionsRouter = router({
       if (input.source_type === "prompt") {
         if (!input.prompt?.trim()) throw new Error("prompt is required for source_type=prompt");
 
-        // Derive task_id: MAX(task_id) + 1, or 1 if empty
-        const [maxRow] = await db.select({ val: max(tasks.task_id) }).from(tasks);
-        const taskId = (maxRow?.val ?? 0) + 1;
+        const [seqRow] = await db.execute(sql`SELECT nextval('prompt_task_id_seq') AS val`);
+        const taskId = Number(seqRow.val);
 
         // Derive title from first non-empty line, truncated
         const title = input.prompt.trim().split("\n").find((l) => l.trim()) ?? "Untitled task";
@@ -734,8 +733,8 @@ export const actionsRouter = router({
     .mutation(async ({ input, ctx }) => {
       if (!isAgentConnectedForUser(ctx.userId)) throw new Error("Agent not connected");
 
-      const [maxRow] = await db.select({ val: max(tasks.task_id) }).from(tasks);
-      const taskId = (maxRow?.val ?? 0) + 1;
+      const [seqRow] = await db.execute(sql`SELECT nextval('prompt_task_id_seq') AS val`);
+      const taskId = Number(seqRow.val);
       const startTime = new Date().toISOString();
 
       await writeStatus(String(taskId), {
