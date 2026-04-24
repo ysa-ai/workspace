@@ -9,6 +9,10 @@ export interface BuildState {
 
 const states = new Map<string, BuildState>();
 
+export function clearBuildState(projectId: string): void {
+  states.set(projectId, { status: "idle", step: "", progress: 0 });
+}
+
 export function getBuildState(projectId: string): BuildState {
   return states.get(projectId) ?? { status: "idle", step: "", progress: 0 };
 }

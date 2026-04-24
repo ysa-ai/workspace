@@ -90,6 +90,8 @@ function SidebarInputSlot({ projectId, buildState, onOpenSettings, onInitialized
 }) {
   const [projectsList] = trpc.projects.list.useSuspenseQuery();
   const noProjects = projectsList.length === 0;
+  const buildStatusUtils = trpc.useUtils().system.buildStatus;
+  const clearBuild = trpc.system.clearBuildStatus.useMutation({ onSuccess: () => buildStatusUtils.invalidate() });
 
   if (noProjects) {
     return (
@@ -108,6 +110,14 @@ function SidebarInputSlot({ projectId, buildState, onOpenSettings, onInitialized
     return (
       <div className="shrink-0 px-5 py-4 border-b border-border">
         <BuildProgress step={buildState.step ?? ""} progress={buildState.progress ?? 0} status={buildState.status} />
+        {buildState.status === "error" && (
+          <button
+            onClick={() => clearBuild.mutate({ projectId: projectId! })}
+            className="mt-2 text-[11px] text-text-muted hover:text-text cursor-pointer underline"
+          >
+            Dismiss
+          </button>
+        )}
       </div>
     );
   }

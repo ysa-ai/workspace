@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure as publicProcedure, protectedProcedure } from "./init";
 import { getResourceMetrics } from "../lib/resources";
-import { getBuildState } from "../lib/build-manager";
+import { getBuildState, clearBuildState } from "../lib/build-manager";
 import { isAgentConnected, getAgentUserId } from "../ws/handler";
 import { sendCommand } from "../ws/dispatch";
 
@@ -21,6 +21,9 @@ export const systemRouter = router({
   buildStatus: publicProcedure
     .input(z.object({ projectId: z.string() }))
     .query(({ input }) => getBuildState(input.projectId)),
+  clearBuildStatus: protectedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(({ input }) => { clearBuildState(input.projectId); return { ok: true }; }),
   agentConnected: protectedProcedure
     .query(({ ctx }) => isAgentConnected() && getAgentUserId() === ctx.userId),
   pickDirectory: protectedProcedure
