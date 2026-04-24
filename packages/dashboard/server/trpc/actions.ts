@@ -82,8 +82,9 @@ export const actionsRouter = router({
       if (input.source_type === "prompt") {
         if (!input.prompt?.trim()) throw new Error("prompt is required for source_type=prompt");
 
-        const [seqRow] = await db.execute(sql`SELECT nextval('prompt_task_id_seq') AS val`);
-        const taskId = Number(seqRow.val);
+        const seqResult = await db.execute(sql`SELECT nextval('prompt_task_id_seq') AS val`);
+        const seqRow = Array.isArray(seqResult) ? seqResult[0] : (seqResult as any).rows?.[0];
+        const taskId = Number(seqRow?.val);
 
         // Derive title from first non-empty line, truncated
         const title = input.prompt.trim().split("\n").find((l) => l.trim()) ?? "Untitled task";
@@ -733,8 +734,9 @@ export const actionsRouter = router({
     .mutation(async ({ input, ctx }) => {
       if (!isAgentConnectedForUser(ctx.userId)) throw new Error("Agent not connected");
 
-      const [seqRow] = await db.execute(sql`SELECT nextval('prompt_task_id_seq') AS val`);
-      const taskId = Number(seqRow.val);
+      const seqResult = await db.execute(sql`SELECT nextval('prompt_task_id_seq') AS val`);
+      const seqRow = Array.isArray(seqResult) ? seqResult[0] : (seqResult as any).rows?.[0];
+      const taskId = Number(seqRow?.val);
       const startTime = new Date().toISOString();
 
       await writeStatus(String(taskId), {
