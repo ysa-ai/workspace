@@ -34,6 +34,8 @@ export const workflowSteps = pgTable("workflow_steps", {
   modules: text("modules").notNull().default("[]"),
   network_policy: text("network_policy"),
   auto_advance: boolean("auto_advance").notNull().default(false),
+  llm_provider: text("llm_provider"),
+  llm_model: text("llm_model"),
   created_at: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
 });
@@ -163,6 +165,7 @@ export const tasks = pgTable("tasks", {
   network_policy: text("network_policy"),
   title: text("title"),
   prompt: text("prompt"),
+  phase_costs: text("phase_costs"),
   created_by: integer("created_by").references(() => users.id),
   created_at: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),

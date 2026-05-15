@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { trpc } from "../../../../trpc";
 import { useToast } from "../../../Toast";
 import { Field } from "../../ui";
-import { INPUT_CLS, INPUT_MONO_CLS, MODELS_BY_PROVIDER } from "../../types";
+import { INPUT_CLS, INPUT_MONO_CLS, MODELS_BY_PROVIDER, PROVIDER_LABELS } from "../../types";
 
 interface AiConfigEntry {
   id: string;
+  name: string;
   provider: string;
   model: string;
   max_turns: number;
@@ -16,7 +17,7 @@ interface AiConfigEntry {
 
 function newEntry(provider = "claude"): AiConfigEntry {
   const model = MODELS_BY_PROVIDER[provider]?.[0]?.id ?? "";
-  return { id: crypto.randomUUID(), provider, model, max_turns: 60, allowed_tools: "", credential_name: null, is_default: false };
+  return { id: crypto.randomUUID(), name: "", provider, model, max_turns: 60, allowed_tools: "", credential_name: null, is_default: false };
 }
 
 function serialize(entries: AiConfigEntry[]): string {
@@ -114,6 +115,14 @@ export function AISettingsSection({ projectId }: { projectId: string }) {
       {addOpen ? (
         <div className="p-4 rounded-lg border border-border bg-bg-surface space-y-3">
           <p className="text-[12px] font-medium text-text-primary">New AI configuration</p>
+          <Field label="Name">
+            <input
+              value={draft.name}
+              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+              className={INPUT_CLS}
+              placeholder="e.g. Claude OAuth, DeepSeek API key"
+            />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Provider">
               <select
@@ -121,8 +130,9 @@ export function AISettingsSection({ projectId }: { projectId: string }) {
                 onChange={(e) => updateDraftProvider(e.target.value)}
                 className={`${INPUT_CLS} cursor-pointer`}
               >
-                <option value="claude">Claude Code</option>
-                <option value="mistral">Mistral Vibe</option>
+                {Object.keys(MODELS_BY_PROVIDER).map((p) => (
+                  <option key={p} value={p}>{PROVIDER_LABELS[p] ?? p}</option>
+                ))}
               </select>
             </Field>
             <Field label="Model">
@@ -231,14 +241,21 @@ function ConfigRow({
   return (
     <div className={`p-3 rounded-lg border ${isDefault ? "border-primary/40 bg-primary/5" : "border-border bg-bg-surface"} space-y-2`}>
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {isDefault ? (
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 px-1.5 py-0.5 rounded">Default</span>
-          ) : (
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {isDefault && (
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 px-1.5 py-0.5 rounded">Default</span>
+          )}
+          <input
+            value={cfg.name}
+            onChange={(e) => onChange({ ...cfg, name: e.target.value })}
+            className="flex-1 min-w-0 bg-transparent text-[12px] font-medium text-text-primary outline-none border-b border-transparent hover:border-border focus:border-primary/40 transition-colors"
+            placeholder="Unnamed config"
+          />
+          {!isDefault && (
             <button
               type="button"
               onClick={onSetDefault}
-              className="text-[11px] text-text-faint hover:text-primary cursor-pointer transition-colors"
+              className="shrink-0 text-[11px] text-text-faint hover:text-primary cursor-pointer transition-colors"
             >
               Set default
             </button>
@@ -261,8 +278,9 @@ function ConfigRow({
           onChange={(e) => updateProvider(e.target.value)}
           className={`${INPUT_CLS} cursor-pointer text-[12px]`}
         >
-          <option value="claude">Claude Code</option>
-          <option value="mistral">Mistral Vibe</option>
+          {Object.keys(MODELS_BY_PROVIDER).map((p) => (
+            <option key={p} value={p}>{PROVIDER_LABELS[p] ?? p}</option>
+          ))}
         </select>
         <select
           value={cfg.model}

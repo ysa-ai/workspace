@@ -99,6 +99,12 @@ function parseMistralLogLine(rawLine: string): ParsedLogEntry | null {
           : `Done — ${turns ?? "?"} turns${cost != null ? `, cost: $${cost.toFixed(4)}` : ""}`,
       cost,
       turns,
+      usage: {
+        input_tokens: obj.usage?.input_tokens,
+        output_tokens: obj.usage?.output_tokens,
+        cache_read_tokens: obj.usage?.cache_read_input_tokens,
+        cache_creation_tokens: obj.usage?.cache_creation_input_tokens,
+      },
     };
   }
 

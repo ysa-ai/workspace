@@ -51,42 +51,28 @@ async function extractClientIdFromBinary(): Promise<string | null> {
 async function readCredentials(): Promise<Record<string, any>> {
   if (process.platform === "darwin") {
     // Newer Claude versions store credentials under the OS username; older ones use "".
-    // Try both and pick the freshest (highest expiresAt).
+    // Always prefer the username-specific entry — it's what the current Claude CLI writes to.
+    // Do NOT pick by expiresAt: a stale unnamed entry could have a farther expiry than a
+    // freshly-issued token, causing the agent to pass a revoked token to containers.
     const account = userInfo().username;
     const cmds = [
       ["security", "find-generic-password", "-s", "Claude Code-credentials", "-a", account, "-w"],
       ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
     ];
 
-    let best: Record<string, any> | null = null;
-    let staleFound = false;
     for (const cmd of cmds) {
       const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
       const stdout = await new Response(proc.stdout).text();
       if ((await proc.exited) !== 0 || !stdout.trim()) continue;
       try {
         const parsed = JSON.parse(stdout.trim());
-        const expiresAt = parsed?.claudeAiOauth?.expiresAt ?? 0;
-        if (!best || expiresAt > (best?.claudeAiOauth?.expiresAt ?? 0)) {
-          if (best) staleFound = true;
-          best = parsed;
-        } else {
-          staleFound = true;
-        }
+        if (parsed?.claudeAiOauth?.accessToken) return parsed;
       } catch { continue; }
     }
 
-    if (!best) {
-      throw new Error(
-        "Failed to read Claude OAuth token from macOS Keychain. Run 'claude /login' first.",
-      );
-    }
-
-    if (staleFound) {
-      console.warn('[oauth] Stale Claude credentials found in Keychain. Clean up with:\n  security delete-generic-password -s "Claude Code-credentials" -a ""');
-    }
-
-    return best;
+    throw new Error(
+      "Failed to read Claude OAuth token from macOS Keychain. Run 'claude /login' first.",
+    );
   } else {
     const credPath = join(homedir(), ".claude", ".credentials.json");
     try {
@@ -297,6 +283,12 @@ function parseClaudeLogLine(rawLine: string): ParsedLogEntry | null {
         `${obj.subtype} — ${obj.num_turns || "?"} turns, cost: $${obj.total_cost_usd?.toFixed(4) || "?"}`,
       cost: obj.total_cost_usd,
       turns: obj.num_turns,
+      usage: {
+        input_tokens: obj.usage?.input_tokens,
+        output_tokens: obj.usage?.output_tokens,
+        cache_read_tokens: obj.usage?.cache_read_input_tokens,
+        cache_creation_tokens: obj.usage?.cache_creation_input_tokens,
+      },
     };
   }
 

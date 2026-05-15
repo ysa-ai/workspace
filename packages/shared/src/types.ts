@@ -36,6 +36,13 @@ export interface StepHistoryEntry {
   status: "running" | "done" | "failed";
 }
 
+export interface TokenUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  cache_creation_tokens?: number;
+}
+
 export interface ParsedLogEntry {
   type: "system" | "assistant" | "tool_call" | "result" | "raw" | "network" | "progress" | "section";
   icon?: string;
@@ -46,6 +53,7 @@ export interface ParsedLogEntry {
   session_id?: string;
   cost?: number;
   turns?: number;
+  usage?: TokenUsage;
   ts?: number;
 }
 
@@ -69,6 +77,8 @@ export interface WorkflowStep {
   networkPolicy: "none" | "strict" | null;
   autoAdvance: boolean;
   promptTemplate: string;
+  provider?: string | null;
+  model?: string | null;
 }
 
 export interface WorkflowTransition {

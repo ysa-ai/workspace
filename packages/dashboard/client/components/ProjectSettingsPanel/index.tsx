@@ -89,6 +89,7 @@ export function ProjectSettingsPanel({
       {view === "workflow_builder" && workflowBuilderTarget !== undefined ? (
         <WorkflowBuilder
           workflowId={workflowBuilderTarget}
+          projectId={editingProject?.project_id}
           onSaved={() => {
             setWorkflowBuilderTarget(undefined);
             onCloseWorkflow?.();

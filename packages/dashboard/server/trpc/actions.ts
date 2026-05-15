@@ -153,7 +153,7 @@ export const actionsRouter = router({
                 toolPreset: s.tool_preset, toolAllowlist: s.tool_allowlist ? JSON.parse(s.tool_allowlist) : null,
                 containerMode: s.container_mode, modules: JSON.parse(s.modules),
                 networkPolicy: s.network_policy, autoAdvance: !!s.auto_advance,
-                promptTemplate: s.prompt_template,
+                promptTemplate: s.prompt_template, provider: s.llm_provider ?? null, model: s.llm_model ?? null,
               })),
               transitions: wfTransitions.map((t) => ({
                 id: t.id, fromStepId: t.from_step_id, toStepId: t.to_step_id,
@@ -327,7 +327,7 @@ export const actionsRouter = router({
                 toolPreset: s.tool_preset, toolAllowlist: s.tool_allowlist ? JSON.parse(s.tool_allowlist) : null,
                 containerMode: s.container_mode, modules: JSON.parse(s.modules),
                 networkPolicy: s.network_policy, autoAdvance: !!s.auto_advance,
-                promptTemplate: s.prompt_template,
+                promptTemplate: s.prompt_template, provider: s.llm_provider ?? null, model: s.llm_model ?? null,
               })),
               transitions: wfTransitions.map((t) => ({
                 id: t.id, fromStepId: t.from_step_id, toStepId: t.to_step_id,

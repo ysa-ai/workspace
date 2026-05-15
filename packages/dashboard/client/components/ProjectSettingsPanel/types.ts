@@ -115,6 +115,16 @@ export const MODELS_BY_PROVIDER: Record<string, { id: string; name: string }[]> 
     { id: "devstral-small-latest", name: "Devstral Small" },
     { id: "codestral-latest", name: "Codestral" },
   ],
+  deepseek: [
+    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+  ],
+};
+
+export const PROVIDER_LABELS: Record<string, string> = {
+  claude: "Claude Code",
+  mistral: "Mistral Vibe",
+  deepseek: "DeepSeek",
 };
 
 export const INPUT_BASE =

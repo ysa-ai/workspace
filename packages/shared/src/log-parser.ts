@@ -100,6 +100,12 @@ export function parseLogEntry(obj: any): ParsedLogEntry | null {
         `${obj.subtype} — ${obj.num_turns || "?"} turns, cost: $${obj.total_cost_usd?.toFixed(4) || "?"}`,
       cost: obj.total_cost_usd,
       turns: obj.num_turns,
+      usage: {
+        input_tokens: obj.usage?.input_tokens,
+        output_tokens: obj.usage?.output_tokens,
+        cache_read_tokens: obj.usage?.cache_read_input_tokens,
+        cache_creation_tokens: obj.usage?.cache_creation_input_tokens,
+      },
     };
   }
 

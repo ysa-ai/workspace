@@ -2,9 +2,15 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure as publicProcedure } from "./init";
 import { db } from "../db";
-import { workflows, workflowSteps, workflowTransitions, toolPresets } from "../db/schema";
-import { eq, asc, or, isNull } from "drizzle-orm";
+import { workflows, workflowSteps, workflowTransitions, toolPresets, projects, userProjectSettings } from "../db/schema";
+import { eq, asc, or, isNull, and } from "drizzle-orm";
 import { requireWorkflowAccess, requireAdminRole } from "../lib/auth-guard";
+import { startBuild } from "../lib/build-manager";
+import { sendCommand } from "../ws/dispatch";
+import { projectImageName, getMiseToolsForLanguages } from "@ysa-ai/ysa/runtime";
+import type { DetectedLanguage } from "@ysa-ai/ysa/runtime";
+import { getProvider } from "@ysa-ai/shared";
+import { aptPackagesForModules, globalPackagesForModules } from "../lib/module-packages";
 
 const stepInput = z.object({
   name: z.string().min(1),
@@ -17,6 +23,8 @@ const stepInput = z.object({
   modules: z.array(z.object({ name: z.string(), prompt: z.string(), config: z.record(z.string(), z.unknown()).optional() })).default([]),
   networkPolicy: z.enum(["none", "strict"]).nullable().default(null),
   autoAdvance: z.boolean().default(false),
+  provider: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
 });
 
 const transitionInput = z.object({
@@ -27,6 +35,67 @@ const transitionInput = z.object({
   isDefault: z.boolean().default(false),
   position: z.number().int().default(0),
 });
+
+async function maybeTriggerModuleBuild(
+  workflowId: number,
+  steps: Array<{ modules: Array<{ name: string }> }>,
+  userId: number,
+) {
+  const moduleNames = steps.flatMap((s) => s.modules.map((m) => m.name));
+  const extraPackages = aptPackagesForModules(moduleNames);
+  const extraGlobalPackages = globalPackagesForModules(moduleNames);
+  if (extraPackages.length === 0 && extraGlobalPackages.length === 0) return;
+
+  const affectedProjects = await db.select().from(projects).where(eq(projects.workflow_id, workflowId));
+
+  for (const project of affectedProjects) {
+    const userSettings = (await db.select().from(userProjectSettings)
+      .where(and(eq(userProjectSettings.project_id, project.project_id), eq(userProjectSettings.user_id, userId)))
+      .limit(1))[0];
+
+    const projectRoot = userSettings?.project_root ?? null;
+    const langs: DetectedLanguage[] = (() => { try { return JSON.parse(project.languages ?? "[]"); } catch { return []; } })();
+    const adapter = getProvider(project.llm_provider ?? "claude");
+    const { tools, env, runtimeEnv, apkPackages, copyDirs } = getMiseToolsForLanguages(langs);
+    for (const pkg of extraPackages) {
+      if (!apkPackages.includes(pkg)) apkPackages.push(pkg);
+    }
+
+    const projectImage = projectRoot && (apkPackages.length > 0 || extraGlobalPackages.length > 0)
+      ? projectImageName(projectRoot, adapter.id)
+      : adapter.containerImage;
+    const miseVolume = `mise-installs-${project.project_id}`;
+    const tomlLines = [`[sandbox]`];
+    if (apkPackages.length > 0) tomlLines.push(`packages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]`);
+    if (extraGlobalPackages.length > 0) tomlLines.push(`global_packages = [${extraGlobalPackages.map((p) => `"${p}"`).join(", ")}]`);
+    const ysaToml = tomlLines.join("\n") + "\n";
+
+    startBuild(project.project_id, async () => {
+      try {
+        const ack = await sendCommand("buildProject", {
+          projectId: project.project_id,
+          projectRoot,
+          ysaToml,
+          apkPackages,
+          globalPackages: extraGlobalPackages,
+          projectImage,
+          containerImage: adapter.containerImage,
+          packageManager: adapter.packageManager,
+          tools,
+          miseVolume,
+          env,
+          runtimeEnv,
+          copyDirs,
+          hadApkImage: false,
+          oldImage: null,
+        }, 600_000);
+        return ack.ok ? { ok: true } : { ok: false, error: ack.error ?? "Build failed" };
+      } catch (err: any) {
+        return { ok: false, error: err.message };
+      }
+    });
+  }
+}
 
 export async function getWorkflowWithSteps(workflowId: number) {
   const wf = (await db.select().from(workflows).where(eq(workflows.id, workflowId)))[0];
@@ -147,6 +216,8 @@ export const workflowsRouter = router({
           modules: JSON.stringify(step.modules),
           network_policy: step.networkPolicy,
           auto_advance: step.autoAdvance,
+          llm_provider: step.provider ?? null,
+          llm_model: step.model ?? null,
         }).returning({ id: workflowSteps.id }))[0]!.id;
         insertedStepIds.push(stepId);
       }
@@ -165,7 +236,9 @@ export const workflowsRouter = router({
         });
       }
 
-      return (await getWorkflowWithSteps(wfId))!;
+      const result = (await getWorkflowWithSteps(wfId))!;
+      await maybeTriggerModuleBuild(wfId, input.steps, ctx.userId);
+      return result;
     }),
 
   update: publicProcedure
@@ -236,6 +309,8 @@ export const workflowsRouter = router({
             modules: JSON.stringify(step.modules),
             network_policy: step.networkPolicy,
             auto_advance: step.autoAdvance,
+            llm_provider: step.provider ?? null,
+            llm_model: step.model ?? null,
           };
           const existingStep = existingBySlug.get(step.slug);
           let stepId: number;
@@ -264,7 +339,9 @@ export const workflowsRouter = router({
         }
       }
 
-      return (await getWorkflowWithSteps(targetId))!;
+      const result = (await getWorkflowWithSteps(targetId))!;
+      if (input.steps !== undefined) await maybeTriggerModuleBuild(targetId, input.steps, ctx.userId);
+      return result;
     }),
 
   delete: publicProcedure
@@ -320,6 +397,8 @@ export const workflowsRouter = router({
           modules: JSON.stringify(step.modules),
           network_policy: step.network_policy,
           auto_advance: step.auto_advance,
+          llm_provider: step.llm_provider ?? null,
+          llm_model: step.llm_model ?? null,
         }).returning({ id: workflowSteps.id }))[0]!.id;
         stepIdMap.set(step.id, newStepId);
       }

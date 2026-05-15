@@ -36,23 +36,22 @@ export function registerCredentialCommands(program: Command): void {
         const name = opts.name || (await ask("Credential name: ")).trim();
         if (!name) { console.error("Name is required."); process.exit(1); }
 
-        const provider = opts.provider || (await ask("Provider (claude/mistral/gitlab/github): ")).trim();
-        if (!["claude", "mistral", "gitlab", "github"].includes(provider)) {
-          console.error("Provider must be claude, mistral, gitlab, or github."); process.exit(1);
-        }
+        const provider = opts.provider || (await selectProvider());
+        if (!provider) { console.error("Provider is required."); process.exit(1); }
 
         const type = opts.type || "api_key";
 
-        const label = provider === "gitlab" || provider === "github" ? "Access token (hidden): " : "API key (hidden): ";
-        process.stdout.write(label);
-        const key = await readSecret();
-        process.stdout.write("\n");
+        rl.close();
+
+        const label = provider === "gitlab" || provider === "github" ? "Access token: " : "API key: ";
+        const key = await readSecret(label);
         if (!key) { console.error("Value cannot be empty."); process.exit(1); }
 
         await addCredential(name, provider, type as "oauth" | "api_key" | "access_token", key);
         console.log(`✓ Credential "${name}" stored locally.`);
-      } finally {
+      } catch (err) {
         rl.close();
+        throw err;
       }
     });
 
@@ -65,9 +64,58 @@ export function registerCredentialCommands(program: Command): void {
     });
 }
 
-function readSecret(): Promise<string> {
+const PROVIDERS = ["claude", "deepseek", "mistral", "gitlab", "github"];
+
+function selectProvider(): Promise<string> {
+  return new Promise((resolve) => {
+    let idx = 0;
+
+    function render() {
+      process.stdout.write("\x1b[?25l"); // hide cursor
+      process.stdout.write(`Provider:\n`);
+      for (let i = 0; i < PROVIDERS.length; i++) {
+        const selected = i === idx;
+        process.stdout.write(`  ${selected ? "\x1b[36m❯ " : "  "}${PROVIDERS[i]}\x1b[0m\n`);
+      }
+    }
+
+    function clear() {
+      process.stdout.write(`\x1b[${PROVIDERS.length + 1}A\x1b[0J`);
+    }
+
+    render();
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding("utf-8");
+    process.stdin.on("data", function handler(ch) {
+      const c = ch.toString();
+      if (c === "") { process.exit(1); }
+      if (c === "\r" || c === "\n") {
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+        process.stdin.removeListener("data", handler);
+        clear();
+        process.stdout.write(`Provider: \x1b[36m${PROVIDERS[idx]}\x1b[0m\n`);
+        process.stdout.write("\x1b[?25h"); // show cursor
+        resolve(PROVIDERS[idx]);
+      } else if (c === "\x1b[A") {
+        idx = (idx - 1 + PROVIDERS.length) % PROVIDERS.length;
+        clear();
+        render();
+      } else if (c === "\x1b[B") {
+        idx = (idx + 1) % PROVIDERS.length;
+        clear();
+        render();
+      }
+    });
+  });
+}
+
+function readSecret(prompt: string): Promise<string> {
   return new Promise((resolve) => {
     let key = "";
+    process.stdout.write(prompt);
     process.stdin.setRawMode(true);
     process.stdin.resume();
     process.stdin.setEncoding("utf-8");
@@ -77,6 +125,7 @@ function readSecret(): Promise<string> {
         process.stdin.setRawMode(false);
         process.stdin.pause();
         process.stdin.removeListener("data", handler);
+        process.stdout.write("\n");
         resolve(key);
       } else if (c === "\u0003") {
         process.exit(1);

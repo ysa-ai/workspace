@@ -14,7 +14,7 @@ import { log } from "../logger";
 import { sendToDashboard, requestFromDashboard } from "../ws/send.js";
 import { composePrompt } from "./prompt";
 import { buildAllowedToolsFromPreset } from "./tools";
-import { getIssueProvider } from "@ysa-ai/shared";
+import { getIssueProvider, getProvider } from "@ysa-ai/shared";
 
 export { composePrompt } from "./prompt";
 export { buildAllowedToolsFromPreset } from "./tools";
@@ -51,6 +51,8 @@ export interface StepDefinition {
   promptTemplate: string;
   isLastStep: boolean;
   prevStepResult: string | null;
+  provider?: string | null;
+  model?: string | null;
 }
 
 // ─── Step fetching ────────────────────────────────────────────────────────
@@ -84,6 +86,8 @@ async function fetchStepDefinition(taskId: string, stepSlug: string): Promise<St
     promptTemplate: step.promptTemplate ?? "",
     isLastStep: !hasForwardTransition,
     prevStepResult,
+    provider: step.provider ?? null,
+    model: step.model ?? null,
   };
 }
 
@@ -280,10 +284,23 @@ export async function runPhase(
     SERVER_PORT: String(config.dashboardPort ?? 3333),
   };
 
+  const stepProvider = stepDef.provider ?? config.llmProvider ?? "claude";
+
   if (config.defaultCredentialName) {
     const { getCredentialKey } = await import("./keystore.js");
     const key = await getCredentialKey(config.defaultCredentialName);
-    if (key) extraEnv[config.llmProvider === "mistral" ? "MISTRAL_API_KEY" : "ANTHROPIC_API_KEY"] = key;
+    if (key) {
+      if (stepProvider === "deepseek") {
+        extraEnv.ANTHROPIC_AUTH_TOKEN = key;
+        extraEnv.ANTHROPIC_BASE_URL = "https://api.deepseek.com/anthropic";
+        process.env.ANTHROPIC_AUTH_TOKEN = key;
+      } else if (stepProvider === "mistral") {
+        extraEnv.MISTRAL_API_KEY = key;
+        process.env.MISTRAL_API_KEY = key;
+      } else {
+        extraEnv.ANTHROPIC_API_KEY = key;
+      }
+    }
   }
 
   if (config.projectId) {
@@ -352,8 +369,8 @@ export async function runPhase(
       branch,
       projectRoot: config.projectRoot,
       worktreePrefix: config.worktreePrefix,
-      provider: config.llmProvider ?? "claude",
-      model: config.llmModel,
+      provider: stepProvider,
+      model: stepDef.model ?? config.llmModel,
       maxTurns: config.llmMaxTurns,
       allowedTools: allowedTools.split(",").filter(Boolean),
       resumeSessionId: continueMode ? resumeSessionId : undefined,
@@ -369,6 +386,9 @@ export async function runPhase(
       extraLabels: { issue: taskId, phase, project: config.projectId ?? "" },
       proxyRules: scopedRules.length > 0 ? scopedRules : undefined,
       serverPort: config.dashboardPort,
+      containerMemory: config.containerMemory,
+      containerCpus: config.containerCpus,
+      containerPidsLimit: config.containerPidsLimit,
     }, {
       onComplete: async (result) => {
         log.info(`Sandbox exited for task #${taskId} (${phase}): ${result.status}`);
@@ -376,7 +396,7 @@ export async function runPhase(
         try {
           const secrets: string[] = [];
 
-          const tokenKeys = ["ISSUE_TOKEN", "GIT_TOKEN", "ANTHROPIC_API_KEY", "MISTRAL_API_KEY"];
+          const tokenKeys = ["ISSUE_TOKEN", "GIT_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "MISTRAL_API_KEY"];
           for (const key of tokenKeys) {
             const val = extraEnv[key];
             if (val && val.length >= 8) secrets.push(val);
@@ -457,7 +477,29 @@ export async function runPhase(
 
         sendToDashboard({ type: "cleanup_submit_token", taskId: Number(taskId), phase });
 
+        let cost_usd: number | null = null;
+        let phase_usage: Record<string, number> | null = null;
+        try {
+          const adapter = getProvider(config.llmProvider ?? "claude");
+          const logContent = await readFile(result.log_path, "utf-8");
+          for (const line of logContent.split("\n").reverse()) {
+            if (!line.trim()) continue;
+            const entry = adapter.parseLogLine(line);
+            if (entry?.type === "result" && typeof entry.cost === "number") {
+              cost_usd = entry.cost;
+              if (entry.usage) {
+                phase_usage = {};
+                for (const [k, v] of Object.entries(entry.usage)) {
+                  if (typeof v === "number") phase_usage[k] = v;
+                }
+              }
+              break;
+            }
+          }
+        } catch {}
+
         const statusUpdate: Record<string, unknown> = {
+          step: phase,
           status: result.status === "stopped" ? "stopped" : finalStatus,
           finished_at: new Date().toISOString(),
           pid: null,
@@ -465,6 +507,7 @@ export async function runPhase(
           error,
           failure_reason: failureReason,
           elapsed_ms: result.duration_ms,
+          ...(cost_usd !== null ? { cost_usd, phase_usage } : {}),
         };
         if (planSummary) statusUpdate.plan_summary = planSummary;
         if (mrUrl) statusUpdate.mr_url = mrUrl;

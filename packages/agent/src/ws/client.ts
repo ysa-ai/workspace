@@ -1,4 +1,4 @@
-import { join } from "path";
+import { join, resolve } from "path";
 import { mkdir, writeFile } from "fs/promises";
 import { homedir } from "os";
 import type { AgentConfig } from "../lib/config";
@@ -258,6 +258,10 @@ function configFromPayload(payload: Record<string, unknown>): AgentConfig {
     npmrcPath: (src.npmrcPath as string) || undefined,
     depsCacheFiles: (src.depsCacheFiles as string[]) || [],
     branchOverrides: (payload.branchOverrides as Record<string, string>) || undefined,
+    containerMemory: (src.containerMemory as string) || undefined,
+    containerCpus: (src.containerCpus as number) || undefined,
+    containerPidsLimit: (src.containerPidsLimit as number) || undefined,
+    containerTimeout: (src.containerTimeout as number) || undefined,
   };
 }
 
@@ -515,7 +519,7 @@ async function handleCommand(
         }
         await Bun.spawn(["podman", "volume", "rm", miseVolume], { stdout: "ignore", stderr: "ignore" }).exited;
 
-        const { buildProjectImage, installRuntimes } = await import("@ysa-ai/ysa/runtime");
+        const { buildProjectImage, installRuntimes, rebuildSandboxImage, getImageCfHash, getContainerDir } = await import("@ysa-ai/ysa/runtime");
 
         let lastProgress = 0;
         const onLog = (line: string) => {
@@ -527,9 +531,21 @@ async function handleCommand(
           }
         };
 
+        const cfContent = await Bun.file(resolve(getContainerDir(), "Containerfile")).text();
+        const currentCfHash = Bun.hash(cfContent).toString(16);
+        const imageCfHash = await getImageCfHash(containerImage as string);
+        if (imageCfHash !== currentCfHash) {
+          log.info(`Containerfile changed (${imageCfHash ?? "unlabeled"} → ${currentCfHash}), rebuilding base image ${containerImage}...`);
+          const caDir = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "proxy-ca");
+          const agentType = (containerImage as string).replace("sandbox-", "") as "claude" | "mistral";
+          const baseResult = await rebuildSandboxImage({ image: containerImage as string, agent: agentType, caDir, onLog });
+          if (!baseResult.ok) { sendAck(requestId, false, undefined, baseResult.error); break; }
+        }
+
+        const globalPkgs: string[] = (payload as any).globalPackages ?? [];
         log.info(`Building project runtime (volume: ${miseVolume})...`);
-        if ((apkPackages as string[]).length > 0) {
-          const result = await buildProjectImage(apkPackages, projectImage, containerImage, packageManager, onLog);
+        if ((apkPackages as string[]).length > 0 || globalPkgs.length > 0) {
+          const result = await buildProjectImage(apkPackages, projectImage, containerImage, packageManager, globalPkgs, onLog);
           if (!result.ok) { sendAck(requestId, false, undefined, result.error); break; }
         }
         if ((tools as any[]).length > 0) {

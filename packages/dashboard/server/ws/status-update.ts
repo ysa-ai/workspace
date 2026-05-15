@@ -13,6 +13,27 @@ export async function handleStatusUpdate(taskId: string, body: Record<string, un
     if (current?.status === "stopped") return;
   }
 
+  if (typeof body.cost_usd === "number" && typeof body.step === "string") {
+    const stepCost = body.cost_usd as number;
+    const stepSlug = body.step as string;
+    const stepUsage = body.phase_usage as Record<string, number> | null | undefined;
+    delete body.cost_usd;
+    delete body.phase_usage;
+    const current = await readStatus(taskId);
+    const costs: Record<string, { cost: number; input_tokens?: number; output_tokens?: number; cache_read_tokens?: number; cache_creation_tokens?: number }> = (() => {
+      try { return JSON.parse((current as any)?.phase_costs || "{}"); } catch { return {}; }
+    })();
+    const prev = costs[stepSlug];
+    costs[stepSlug] = {
+      cost: (prev?.cost ?? 0) + stepCost,
+      input_tokens: (prev?.input_tokens ?? 0) + (stepUsage?.input_tokens ?? 0),
+      output_tokens: (prev?.output_tokens ?? 0) + (stepUsage?.output_tokens ?? 0),
+      cache_read_tokens: (prev?.cache_read_tokens ?? 0) + (stepUsage?.cache_read_tokens ?? 0),
+      cache_creation_tokens: (prev?.cache_creation_tokens ?? 0) + (stepUsage?.cache_creation_tokens ?? 0),
+    };
+    body.phase_costs = JSON.stringify(costs);
+  }
+
   const PHASE_DONE_STATUSES = ["step_done", "failed"];
   if (body.status && PHASE_DONE_STATUSES.includes(body.status as string)) {
     const current = await readStatus(taskId);

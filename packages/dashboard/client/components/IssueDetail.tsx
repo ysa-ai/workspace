@@ -3,6 +3,7 @@ import { DeliverySection } from "./modules/DeliverySection";
 import { UnitTestsSection } from "./modules/UnitTestsSection";
 import { ManualQASection } from "./modules/ManualQASection";
 import { ChangeReport } from "./modules/ChangeReport";
+import { FrontendDebugSection } from "./modules/FrontendDebugSection";
 import { StatusBadge } from "./StatusBadge";
 import { PhaseStepper } from "./Stepper";
 const PlanSection = lazy(() => import("./PlanTab").then((m) => ({ default: m.PlanSection })));
@@ -13,6 +14,69 @@ import { formatActiveTime, useLiveTick, displayTaskId } from "../lib/format";
 import { trpc } from "../trpc";
 import { useToast } from "./Toast";
 import type { TaskData } from "./IssueRow";
+
+function CostBadge({ phaseCostsRaw }: { phaseCostsRaw: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  type PhaseEntry = { cost: number; input_tokens?: number; output_tokens?: number; cache_read_tokens?: number; cache_creation_tokens?: number };
+  let costs: Record<string, PhaseEntry> = {};
+  try { costs = JSON.parse(phaseCostsRaw); } catch { return null; }
+
+  const entries = Object.entries(costs).filter(([, v]) => v.cost > 0);
+  if (entries.length === 0) return null;
+  const total = entries.reduce((a, [, v]) => a + v.cost, 0);
+
+  const label = `Cost $${total.toFixed(4)}`;
+
+  return (
+    <div
+      ref={ref}
+      className="relative shrink-0 flex items-center"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <span className="text-[11px] font-semibold text-text-primary bg-bg-surface border border-border rounded px-2 py-0.5 cursor-default select-none">
+        {label}
+      </span>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50 bg-bg-raised border border-border rounded-lg shadow-lg p-3 min-w-[560px]">
+          <table className="w-full text-[11px] border-collapse">
+            <thead>
+              <tr className="text-text-faint">
+                <th className="text-left pb-1.5 pr-3 font-medium">Phase</th>
+                <th className="text-center pb-1.5 pr-3 font-medium">Cost (USD)</th>
+                <th className="text-center pb-1.5 pr-3 font-medium">Input tokens</th>
+                <th className="text-center pb-1.5 pr-3 font-medium">Output tokens</th>
+                <th className="text-center pb-1.5 pr-3 font-medium">Cache read tokens</th>
+                <th className="text-center pb-1.5 font-medium">Cache write tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map(([slug, v]) => (
+                <tr key={slug} className="border-t border-border-subtle">
+                  <td className="py-1 pr-3 text-text-primary capitalize">{slug}</td>
+                  <td className="py-1 pr-3 text-center font-mono text-text-primary">${v.cost.toFixed(4)}</td>
+                  <td className="py-1 pr-3 text-center font-mono text-text-muted">{v.input_tokens?.toLocaleString() ?? "—"}</td>
+                  <td className="py-1 pr-3 text-center font-mono text-text-muted">{v.output_tokens?.toLocaleString() ?? "—"}</td>
+                  <td className="py-1 pr-3 text-center font-mono text-text-muted">{v.cache_read_tokens?.toLocaleString() ?? "—"}</td>
+                  <td className="py-1 text-center font-mono text-text-muted">{v.cache_creation_tokens?.toLocaleString() ?? "—"}</td>
+                </tr>
+              ))}
+              {entries.length > 1 && (
+                <tr className="border-t border-border">
+                  <td className="pt-1.5 pr-3 text-text-faint font-medium">Total</td>
+                  <td className="pt-1.5 pr-3 text-center font-mono text-text-primary font-semibold">${total.toFixed(4)}</td>
+                  <td colSpan={4} />
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PromptBadge({ taskId }: { taskId: number }) {
   const [open, setOpen] = useState(false);
@@ -36,7 +100,7 @@ function PromptBadge({ taskId }: { taskId: number }) {
   }, [open]);
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0 flex items-center">
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
@@ -193,7 +257,10 @@ export function IssueDetail({ issue, onOpenTerminal, onChangeTerminal, initialSt
         <div className="h-12 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 min-w-0">
             {issue.source_type === "prompt" ? (
-              <PromptBadge taskId={issue.task_id} />
+              <>
+                <PromptBadge taskId={issue.task_id} />
+                {issue.phase_costs && <CostBadge phaseCostsRaw={issue.phase_costs} />}
+              </>
             ) : issue.issue_url ? (
               <a
                 href={issue.issue_url}
@@ -425,6 +492,7 @@ function StepContent({
   const hasManualQA = moduleNames.includes("manual_qa");
   const hasIssueUpdate = moduleNames.includes("issue_update");
   const hasChangeReport = moduleNames.includes("change_report");
+  const hasFrontendDebug = moduleNames.includes("frontend_debug");
 
   return (
     <>
@@ -432,6 +500,7 @@ function StepContent({
       {hasDelivery && <DeliverySection issueId={issue.task_id} stepSlug={stepSlug} status={status} issueSource={issue.issue_source} />}
       {hasUnitTests && <UnitTestsSection issueId={issue.task_id} stepSlug={stepSlug} status={status} />}
       {hasManualQA && <ManualQASection issueId={issue.task_id} stepSlug={stepSlug} status={status} />}
+      {hasFrontendDebug && <FrontendDebugSection issueId={issue.task_id} stepSlug={stepSlug} status={status} />}
       {hasIssueUpdate && <IssueUpdateSection issueId={issue.task_id} stepSlug={stepSlug} status={status} issueSource={issue.issue_source} />}
       {hasChangeReport && <ChangeReport issueId={issue.task_id} status={status} />}
     </>

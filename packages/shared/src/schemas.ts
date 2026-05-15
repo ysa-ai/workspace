@@ -148,6 +148,7 @@ export const agentConfigSchema = z.object({
         name: z.string(),
         cmd: z.string(),
         port: z.number(),
+        env: z.record(z.string()).optional(),
       }),
     ),
   }),

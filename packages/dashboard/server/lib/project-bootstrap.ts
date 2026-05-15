@@ -181,10 +181,10 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     gitlabProjectId: row.gitlab_project_id || undefined,
     depsCacheFiles: (() => { try { return JSON.parse(row.deps_cache_files ?? "[]"); } catch { return []; } })(),
     port: config.port,
-    containerMemory: "4g",
-    containerCpus: 2,
-    containerPidsLimit: 512,
-    containerTimeout: 3600,
+    containerMemory: row.container_memory || "4g",
+    containerCpus: row.container_cpus ?? 2,
+    containerPidsLimit: row.container_pids_limit ?? 512,
+    containerTimeout: row.container_timeout ?? 3600,
   };
 
   return applyUserSettings(orgBase, userSettings, row.issue_source_token, config.masterKey);

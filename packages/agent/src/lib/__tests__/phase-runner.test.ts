@@ -86,7 +86,7 @@ describe("composePrompt", () => {
     );
     expect(prompt).toContain("99");
     expect(prompt).toContain("/workspace");
-    expect(prompt).toContain("/repo.git");
+    expect(prompt).toContain("/tmp/repo.git");
     expect(prompt).toContain("host.containers.internal:3333");
     expect(prompt).not.toContain("{ISSUE_ID}");
     expect(prompt).not.toContain("{WORKTREE}");

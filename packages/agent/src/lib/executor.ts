@@ -299,6 +299,13 @@ export async function cleanupIssue(
 ) {
   await teardownContainer(issueId, { labels: { issue: issueId, project: config.projectId ?? "" } });
 
+  // teardownContainer greps for volumes ending with `-${issueId}` but per-phase volumes
+  // are named with a compound suffix like `1-popcorn-366-analyze`, so they need explicit cleanup.
+  const compoundPrefix = [orgId, config.projectId, issueId].filter(Boolean).join("-");
+  await runShell(
+    `podman volume ls --format '{{.Name}}' | grep -- '^task-session-${compoundPrefix}-\\|^shadow-[^-]*-${compoundPrefix}-' | xargs podman volume rm 2>/dev/null || true`,
+  );
+
   const worktree = `${config.worktreePrefix}${issueId}`;
   const branch = `${config.branchPrefix}${issueId}`;
   await removeWorktree(config.projectRoot, worktree, branch);

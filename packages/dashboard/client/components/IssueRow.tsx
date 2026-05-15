@@ -31,6 +31,7 @@ export interface TaskData {
   step_transitions?: { id: number; toStepId: number | null; label: string | null; isDefault: boolean }[];
   step_history?: { stepId: number; slug: string; startedAt: string; finishedAt: string | null; status: string }[];
   created_by?: number | null;
+  phase_costs?: string | null;
 }
 
 // Backwards-compat alias

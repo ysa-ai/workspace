@@ -72,6 +72,13 @@ export async function composePrompt(
   let preamble = "You are running in HEADLESS MODE as a sandboxed instance. You CANNOT ask questions to the user. Execute all steps autonomously.\n\n";
   preamble += "- **Worktree** (your working copy): `{WORKTREE}`\n";
   preamble += "- **Main repo** (read-only reference): `{MAIN_REPO}`\n";
+  if (config.devServers.length > 0) {
+    preamble += "\n**Dev servers** (use these exact commands — do not guess from package.json):\n";
+    for (const s of config.devServers) {
+      const envPrefix = s.env ? Object.entries(s.env).map(([k, v]) => `${k}='${v}'`).join(" ") + " " : "";
+      preamble += `- **${s.name}**: \`${envPrefix}${s.cmd}\` → port ${s.port}\n`;
+    }
+  }
   if (stepDef.containerMode === "readonly") {
     preamble += "\n> **READ-ONLY MODE** — Do NOT create, edit, or delete any files. Analyse only.\n";
   }
@@ -148,7 +155,7 @@ export async function composePrompt(
     .replaceAll("{ISSUE_ID}", issueId)
     .replaceAll("{WORKTREE}", "/workspace")
     .replaceAll("{OUTPUT_DIR}", "/output")
-    .replaceAll("{MAIN_REPO}", "/repo.git")
+    .replaceAll("{MAIN_REPO}", "/tmp/repo.git")
     .replaceAll("{DASHBOARD_URL}", containerDashboardUrl)
     .replaceAll("{DASHBOARD_PORT}", String(config.dashboardPort))
     .replaceAll("{TEST_CMD}", config.testCmd || "")

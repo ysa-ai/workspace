@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure as publicProcedure } from "./init";
 import { db } from "../db";
-import { projects, tasks, workflows, userProjectSettings, userProjectCredentialPreferences } from "../db/schema";
+import { projects, tasks, workflows, workflowSteps, userProjectSettings, userProjectCredentialPreferences } from "../db/schema";
 import { eq, and, ne, inArray, max } from "drizzle-orm";
 import { requireProjectAccess, requireAdminRole } from "../lib/auth-guard";
 import { config } from "../config";
@@ -12,6 +12,7 @@ import { startBuild } from "../lib/build-manager";
 import { projectImageName, getMiseToolsForLanguages } from "@ysa-ai/ysa/runtime";
 import type { DetectedLanguage } from "@ysa-ai/ysa/runtime";
 import { getProvider } from "@ysa-ai/shared";
+import { aptPackagesForModules, globalPackagesForModules } from "../lib/module-packages";
 import { writeStatus, upsertStepPrompt } from "../lib/status";
 import { getProjectConfig } from "../lib/project-bootstrap";
 import { fetchGitlabProjectId } from "../lib/gitlab";
@@ -334,20 +335,32 @@ export const projectsRouter = router({
         const { apkPackages: oldApkPackages } = oldLangs.length ? getMiseToolsForLanguages(oldLangs) : { apkPackages: [] as string[] };
         const hadApkImage = oldApkPackages.length > 0;
 
+        let moduleGlobalPackages: string[] = [];
+        if (existing.workflow_id) {
+          const wfSteps = await db.select({ modules: workflowSteps.modules }).from(workflowSteps).where(eq(workflowSteps.workflow_id, existing.workflow_id));
+          const moduleNames = wfSteps.flatMap((s) => { try { return (JSON.parse(s.modules) as { name: string }[]).map((m) => m.name); } catch { return []; } });
+          for (const pkg of aptPackagesForModules(moduleNames)) {
+            if (!apkPackages.includes(pkg)) apkPackages.push(pkg);
+          }
+          moduleGlobalPackages = globalPackagesForModules(moduleNames);
+        }
+
         const userSettings = (await db.select().from(userProjectSettings)
           .where(and(eq(userProjectSettings.project_id, projectId), eq(userProjectSettings.user_id, ctx.userId))).limit(1))[0];
         const projectRoot = userSettings?.project_root;
-        const projectImage = projectRoot && apkPackages.length > 0 ? projectImageName(projectRoot, adapter.id) : adapter.containerImage;
+        const projectImage = projectRoot && (apkPackages.length > 0 || moduleGlobalPackages.length > 0) ? projectImageName(projectRoot, adapter.id) : adapter.containerImage;
         const miseVolume = `mise-installs-${projectId}`;
 
-        const ysaToml = apkPackages.length > 0
-          ? `[sandbox]\npackages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]\n`
-          : "";
+        const tomlLines = [`[sandbox]`];
+        if (apkPackages.length > 0) tomlLines.push(`packages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]`);
+        if (moduleGlobalPackages.length > 0) tomlLines.push(`global_packages = [${moduleGlobalPackages.map((p) => `"${p}"`).join(", ")}]`);
+        const ysaToml = tomlLines.length > 1 ? tomlLines.join("\n") + "\n" : "";
         const buildPayload = {
           projectId,
           projectRoot: projectRoot ?? null,
           ysaToml,
           apkPackages,
+          globalPackages: moduleGlobalPackages,
           projectImage,
           containerImage: adapter.containerImage,
           packageManager: adapter.packageManager,
@@ -360,7 +373,7 @@ export const projectsRouter = router({
           oldImage: hadApkImage && projectRoot ? projectImageName(projectRoot, adapter.id) : null,
         };
 
-        if (apkPackages.length > 0 || tools.length > 0) {
+        if (apkPackages.length > 0 || moduleGlobalPackages.length > 0 || tools.length > 0) {
           buildTriggered = true;
           startBuild(projectId, async () => {
             try {
@@ -425,6 +438,59 @@ export const projectsRouter = router({
         .set({ workflow_id: input.workflowId, updated_at: new Date().toISOString() } as any)
         .where(eq(projects.project_id, input.projectId));
 
+      if (input.workflowId !== null) {
+        const steps = await db.select({ modules: workflowSteps.modules })
+          .from(workflowSteps)
+          .where(eq(workflowSteps.workflow_id, input.workflowId));
+        const moduleNames = steps.flatMap((s) => { try { return (JSON.parse(s.modules) as { name: string }[]).map((m) => m.name); } catch { return []; } });
+        const extraPackages = aptPackagesForModules(moduleNames);
+        const extraGlobalPackages = globalPackagesForModules(moduleNames);
+        if (extraPackages.length > 0 || extraGlobalPackages.length > 0) {
+          const userSettings = (await db.select().from(userProjectSettings)
+            .where(and(eq(userProjectSettings.project_id, input.projectId), eq(userProjectSettings.user_id, ctx.userId)))
+            .limit(1))[0];
+          const projectRoot = userSettings?.project_root ?? null;
+          const langs: DetectedLanguage[] = (() => { try { return JSON.parse(existing.languages ?? "[]"); } catch { return []; } })();
+          const adapter = getProvider(existing.llm_provider ?? "claude");
+          const { tools, env, runtimeEnv, apkPackages, copyDirs } = getMiseToolsForLanguages(langs);
+          for (const pkg of extraPackages) {
+            if (!apkPackages.includes(pkg)) apkPackages.push(pkg);
+          }
+          const projectImage = projectRoot && (apkPackages.length > 0 || extraGlobalPackages.length > 0)
+            ? projectImageName(projectRoot, adapter.id)
+            : adapter.containerImage;
+          const miseVolume = `mise-installs-${input.projectId}`;
+          const tomlLines = [`[sandbox]`];
+          if (apkPackages.length > 0) tomlLines.push(`packages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]`);
+          if (extraGlobalPackages.length > 0) tomlLines.push(`global_packages = [${extraGlobalPackages.map((p) => `"${p}"`).join(", ")}]`);
+          const ysaToml = tomlLines.join("\n") + "\n";
+          startBuild(input.projectId, async () => {
+            try {
+              const ack = await sendCommand("buildProject", {
+                projectId: input.projectId,
+                projectRoot,
+                ysaToml,
+                apkPackages,
+                globalPackages: extraGlobalPackages,
+                projectImage,
+                containerImage: adapter.containerImage,
+                packageManager: adapter.packageManager,
+                tools,
+                miseVolume,
+                env,
+                runtimeEnv,
+                copyDirs,
+                hadApkImage: false,
+                oldImage: null,
+              }, 600_000);
+              return ack.ok ? { ok: true } : { ok: false, error: ack.error ?? "Build failed" };
+            } catch (err: any) {
+              return { ok: false, error: err.message };
+            }
+          });
+        }
+      }
+
       return { ok: true };
     }),
 
@@ -478,6 +544,63 @@ export const projectsRouter = router({
     .mutation(async ({ input, ctx }) => {
       await requireProjectAccess(ctx.orgId, input.projectId);
       await upsertCredentialPreference(ctx.userId, input.projectId, { ai_configs: input.aiConfigs });
+      return { ok: true };
+    }),
+
+  rebuildImage: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireProjectAccess(ctx.orgId, input.projectId);
+      const existing = (await db.select().from(projects).where(eq(projects.project_id, input.projectId)))[0];
+      if (!existing) throw new Error(`Project ${input.projectId} not found`);
+      const userSettings = (await db.select().from(userProjectSettings)
+        .where(and(eq(userProjectSettings.project_id, input.projectId), eq(userProjectSettings.user_id, ctx.userId)))
+        .limit(1))[0];
+      const projectRoot = userSettings?.project_root ?? null;
+      const langs: DetectedLanguage[] = (() => { try { return JSON.parse(existing.languages ?? "[]"); } catch { return []; } })();
+      const adapter = getProvider(existing.llm_provider ?? "claude");
+      const { tools, env, runtimeEnv, apkPackages, copyDirs } = getMiseToolsForLanguages(langs);
+      let moduleGlobalPackages: string[] = [];
+      if (existing.workflow_id) {
+        const wfSteps = await db.select({ modules: workflowSteps.modules }).from(workflowSteps).where(eq(workflowSteps.workflow_id, existing.workflow_id));
+        const moduleNames = wfSteps.flatMap((s) => { try { return (JSON.parse(s.modules) as { name: string }[]).map((m) => m.name); } catch { return []; } });
+        for (const pkg of aptPackagesForModules(moduleNames)) {
+          if (!apkPackages.includes(pkg)) apkPackages.push(pkg);
+        }
+        moduleGlobalPackages = globalPackagesForModules(moduleNames);
+      }
+      const projectImage = projectRoot && (apkPackages.length > 0 || moduleGlobalPackages.length > 0)
+        ? projectImageName(projectRoot, adapter.id)
+        : adapter.containerImage;
+      const miseVolume = `mise-installs-${input.projectId}`;
+      const tomlLines = [`[sandbox]`];
+      if (apkPackages.length > 0) tomlLines.push(`packages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]`);
+      if (moduleGlobalPackages.length > 0) tomlLines.push(`global_packages = [${moduleGlobalPackages.map((p) => `"${p}"`).join(", ")}]`);
+      const ysaToml = tomlLines.length > 1 ? tomlLines.join("\n") + "\n" : "";
+      startBuild(input.projectId, async () => {
+        try {
+          const ack = await sendCommand("buildProject", {
+            projectId: input.projectId,
+            projectRoot,
+            ysaToml,
+            apkPackages,
+            globalPackages: moduleGlobalPackages,
+            projectImage,
+            containerImage: adapter.containerImage,
+            packageManager: adapter.packageManager,
+            tools,
+            miseVolume,
+            env,
+            runtimeEnv,
+            copyDirs,
+            hadApkImage: false,
+            oldImage: null,
+          }, 600_000);
+          return ack.ok ? { ok: true } : { ok: false, error: ack.error ?? "Build failed" };
+        } catch (err: any) {
+          return { ok: false, error: err.message };
+        }
+      });
       return { ok: true };
     }),
 });

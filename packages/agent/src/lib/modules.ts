@@ -29,6 +29,46 @@ Do NOT use \`gh\`, \`WebFetch\`, or any MCP tool to read the issue.`,
    - Inspect the date tag in the header.
    - Expected: The date displayed is DMAJ, not DMIS.`,
 
+  frontend_debug: `Verify the frontend visually using Playwright (system Chromium, headless).
+
+**Only run this module if the changes include frontend code** (UI components, styles, client-side logic, templates). If the changes are purely backend, infrastructure, or configuration with no visible frontend impact, set status to "skipped" in your result and stop.
+
+**Setup** — write this capture script once:
+\`\`\`
+mkdir -p /workspace/.playwright
+cat > /workspace/.playwright/capture.ts << 'EOF'
+import { chromium } from "playwright-core";
+const url = process.argv[2];
+if (!url) { console.error("Usage: bun capture.ts <url>"); process.exit(1); }
+const browser = await chromium.launch({
+  executablePath: "/usr/bin/chromium",
+  headless: true,
+  args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-crash-reporter", "--no-crashpad", "--disable-gpu"],
+});
+const page = await browser.newPage();
+const consoleErrors: string[] = [];
+page.on("console", msg => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
+await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+const screenshotPath = \`/workspace/.playwright/\${Date.now()}.png\`;
+await page.screenshot({ path: screenshotPath, fullPage: true });
+const tree = await page.accessibility.snapshot();
+console.log(JSON.stringify({ screenshotPath, consoleErrors, accessibility: tree }, null, 2));
+await browser.close();
+EOF
+\`\`\`
+
+**Workflow:**
+0. Run this diagnostic first and include the output in your result summary: \`echo "HOME=$HOME" && (mkdir -p "$HOME/.turbo-test" && echo "HOME writable: yes" && rmdir "$HOME/.turbo-test" || echo "HOME writable: NO")\`
+1. Start **all** configured dev servers listed in the preamble in the background, each logging to a file (e.g. \`cmd > /tmp/server-name.log 2>&1 &\`). The app typically needs API + frontend servers running together.
+2. Wait 5 seconds, then read each server's log file to check for startup crashes. If a server crashed, set status to \`"failed"\` with the crash output in \`summary\` and stop immediately.
+3. Poll each server's port every 2 seconds for up to 60 seconds: \`curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>\`. Stop as soon as you get 200/301/302. If not ready after 60 seconds, read its log again and set status to \`"failed"\` with the error — stop immediately.
+4. Run \`bun /workspace/.playwright/capture.ts <url>\` — captures a screenshot and accessibility tree.
+5. Read the PNG file at the path printed in the output using your Read tool to visually inspect the UI.
+6. Check \`consoleErrors\` in the JSON output for JS errors.
+7. Navigate to other pages or states as needed by running the script again with different URLs.
+8. Fix any visual or functional issues found, re-run to confirm. Read each PNG you take.
+9. Stop the dev server when done.`,
+
   change_report: `After implementing your changes, commit them locally — do NOT push or create a pull request or merge request.
 1. **Stage files** — use \`git add <specific files>\` only. Never \`git add .\` or \`git add -A\`.
 2. **Commit** — write a clear, descriptive commit message explaining what changed and why. No AI attribution of any kind.
@@ -38,6 +78,16 @@ Do NOT use \`gh\`, \`WebFetch\`, or any MCP tool to read the issue.`,
 1. **Post comment** — run \`{COMMENT_CMD}\` with the comment body. The comment must summarise: what was done, link to the {PR_TERM} if one was created, test results if available, and any follow-up items.
 2. **Update metadata** — apply any label or status changes specified in the configuration block below using \`{UPDATE_ISSUE_CMD}\`.
 3. Do not close the issue unless explicitly configured to do so.`,
+};
+
+// APT packages required by each module — installed into the project container image.
+export const MODULE_APT_PACKAGES: Record<string, string[]> = {
+  frontend_debug: ["chromium"],
+};
+
+// Global packages required by each module — format: "<manager>:<package>", e.g. "bun:playwright-core", "pip:playwright".
+export const MODULE_GLOBAL_PACKAGES: Record<string, string[]> = {
+  frontend_debug: ["bun:playwright-core"],
 };
 
 // JSON schema for each module's result submission.
@@ -61,6 +111,12 @@ export const MODULE_RESULT_SCHEMAS: Record<string, Record<string, string>> = {
     note_content: "string — full markdown text of the comment you posted",
     labels_added: "string[] — labels added to the issue",
     labels_removed: "string[] — labels removed from the issue",
+  },
+  frontend_debug: {
+    status: '"passed" | "failed" | "skipped"',
+    summary: "string — what was verified and any issues found",
+    screenshots: "string[] — base64-encoded PNG screenshots as proof",
+    console_errors: "string — JS console errors detected, empty string if none",
   },
 };
 

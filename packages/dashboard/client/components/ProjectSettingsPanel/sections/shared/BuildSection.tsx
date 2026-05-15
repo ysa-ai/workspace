@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormContext, useFieldArray } from "react-hook-form";
 import { trpc } from "../../../../trpc";
 import { Field } from "../../ui";
@@ -8,11 +8,12 @@ import type { SharedFormValues } from "../../types";
 
 export function BuildSection({ projectId, showBuild, onBuildDone }: { projectId?: string; showBuild?: boolean; onBuildDone?: () => void }) {
   const { register, watch, setValue } = useFormContext<SharedFormValues>();
+  const [rebuildPending, setRebuildPending] = useState(false);
 
   const { data: buildState } = trpc.system.buildStatus.useQuery(
     { projectId: projectId! },
     {
-      enabled: !!projectId && !!showBuild,
+      enabled: !!projectId && (!!showBuild || rebuildPending),
       refetchInterval: (query) => {
         const s = (query.state.data as { status: string } | undefined)?.status;
         return s === "building" ? 500 : false;
@@ -20,12 +21,17 @@ export function BuildSection({ projectId, showBuild, onBuildDone }: { projectId?
     },
   );
 
+  const rebuildMutation = trpc.projects.rebuildImage.useMutation({
+    onSuccess: () => setRebuildPending(true),
+  });
+
   const prevStatus = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!buildState) return;
     const prev = prevStatus.current;
     prevStatus.current = buildState.status;
     if (prev === "building" && (buildState.status === "done" || buildState.status === "error")) {
+      setRebuildPending(false);
       onBuildDone?.();
     }
   }, [buildState?.status]);
@@ -107,8 +113,20 @@ export function BuildSection({ projectId, showBuild, onBuildDone }: { projectId?
             );
           })}
         </div>
+        {projectId && (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => rebuildMutation.mutate({ projectId })}
+              disabled={rebuildMutation.isPending || rebuildPending}
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium border border-border bg-bg-inset text-text-muted hover:text-text-primary hover:border-border-bright transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {rebuildMutation.isPending || rebuildPending ? "Rebuilding…" : "Rebuild image"}
+            </button>
+          </div>
+        )}
       </Field>
-      {showBuild && buildState && (buildState.status === "building" || buildState.status === "done" || buildState.status === "error") && (
+      {(showBuild || rebuildPending) && buildState && (buildState.status === "building" || buildState.status === "done" || buildState.status === "error") && (
         <div className="pt-1">
           <BuildProgress step={buildState.step ?? ""} progress={buildState.progress ?? 0} status={buildState.status} />
         </div>

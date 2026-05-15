@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { trpc } from "../trpc";
 import { useToast } from "./Toast";
+import { MODELS_BY_PROVIDER, PROVIDER_LABELS } from "./ProjectSettingsPanel/types";
+
+interface AiConfigEntry {
+  name: string;
+  provider: string;
+  model: string;
+  is_default: boolean;
+}
 
 type NetworkPolicy = "none" | "strict" | null;
 
@@ -19,6 +27,8 @@ interface StepForm {
   promptTemplate: string;
   autoAdvance: boolean;
   toolAllowlist: string[] | null;
+  provider: string | null;
+  model: string | null;
 }
 
 // Built-in module catalog — name, label, description, default prompt, default config
@@ -92,6 +102,12 @@ Post a summary comment on the issue and update its metadata to reflect the compl
     description: "Agent generates a manual QA checklist; a human can tick items off in the dashboard.",
     defaultPrompt: "Generate a manual QA checklist covering the main user-facing scenarios affected by this change. Each item should be a specific, actionable verification step.",
   },
+  {
+    name: "frontend_debug",
+    label: "Frontend Debug",
+    description: "Verifies frontend behaviour and design using playwright-cli with system Chromium. Takes screenshots as proof.",
+    defaultPrompt: "",
+  },
 ];
 
 const defaultStep = (): StepForm => ({
@@ -103,6 +119,8 @@ const defaultStep = (): StepForm => ({
   promptTemplate: "",
   autoAdvance: false,
   toolAllowlist: null,
+  provider: null,
+  model: null,
 });
 
 function slugify(name: string): string {
@@ -172,13 +190,85 @@ function ToolPresetSelector({ value, onChange }: { value: string; onChange: (nam
   );
 }
 
+function AiModelDropdown({ aiConfigs, provider, model, onChange }: {
+  aiConfigs: AiConfigEntry[];
+  provider: string | null;
+  model: string | null;
+  onChange: (provider: string | null, model: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const selected = provider && model ? aiConfigs.find((c) => c.provider === provider && c.model === model) : null;
+  const selectedModelName = selected ? (MODELS_BY_PROVIDER[selected.provider]?.find((m) => m.id === selected.model)?.name ?? selected.model) : null;
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">AI model</label>
+      <button
+        type="button"
+        className={`${INPUT_CLS} flex items-center justify-between gap-2 text-left`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {selected ? (
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="text-text-primary truncate">{selected.name || (PROVIDER_LABELS[selected.provider] ?? selected.provider)}</span>
+            <span className="text-text-faint shrink-0">— {selectedModelName}</span>
+          </span>
+        ) : (
+          <span className="text-text-muted">Project default</span>
+        )}
+        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className="shrink-0 text-text-muted"><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-bg-raised shadow-lg py-1">
+          <button
+            type="button"
+            className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-surface transition-colors ${!selected ? "text-primary" : "text-text-muted"}`}
+            onClick={() => { onChange(null, null); setOpen(false); }}
+          >
+            Project default
+          </button>
+          {aiConfigs.map((cfg, i) => {
+            const modelName = MODELS_BY_PROVIDER[cfg.provider]?.find((m) => m.id === cfg.model)?.name ?? cfg.model;
+            const isSelected = cfg.provider === provider && cfg.model === model;
+            return (
+              <button
+                key={i}
+                type="button"
+                className={`w-full text-left px-3 py-2 hover:bg-bg-surface transition-colors flex items-center gap-1.5 ${isSelected ? "bg-primary/5" : ""}`}
+                onClick={() => { onChange(cfg.provider, cfg.model); setOpen(false); }}
+              >
+                <span className={`text-[13px] ${isSelected ? "text-primary" : "text-text-primary"}`}>
+                  {cfg.name || (PROVIDER_LABELS[cfg.provider] ?? cfg.provider)}
+                </span>
+                <span className="text-[12px] text-text-faint">— {modelName}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface WorkflowBuilderProps {
   workflowId: number | null; // null = create new
+  projectId?: string;
   onSaved: () => void;
   onClose: () => void;
 }
 
-export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilderProps) {
+export function WorkflowBuilder({ workflowId, projectId, onSaved, onClose }: WorkflowBuilderProps) {
   const showToast = useToast();
   const utils = trpc.useUtils();
 
@@ -195,6 +285,15 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
     { workflowId: workflowId! },
     { enabled: workflowId !== null },
   );
+
+  const { data: userSettings } = trpc.projects.getUserSettings.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId },
+  );
+  const aiConfigs: AiConfigEntry[] = (() => {
+    if (!userSettings?.ai_configs) return [];
+    try { return JSON.parse(userSettings.ai_configs); } catch { return []; }
+  })();
 
   useEffect(() => {
     if (!existingWf.data) return;
@@ -213,6 +312,8 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
         promptTemplate: s.prompt_template ?? "",
         autoAdvance: !!s.auto_advance,
         toolAllowlist: Array.isArray(s.tool_allowlist) ? s.tool_allowlist : null,
+        provider: s.llm_provider ?? null,
+        model: s.llm_model ?? null,
       })),
     );
     setIsDirty(false);
@@ -253,6 +354,8 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
       modules: s.modules,
       networkPolicy: s.networkPolicy,
       autoAdvance: s.autoAdvance,
+      provider: s.provider ?? null,
+      model: s.model ?? null,
     }));
 
     // Linear transitions: each step → next, last → null
@@ -457,24 +560,34 @@ export function WorkflowBuilder({ workflowId, onSaved, onClose }: WorkflowBuilde
                   onChange={(name) => patchStep(selectedIdx, { toolPreset: name })}
                 />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Network policy</label>
-                  <div className="flex gap-1">
-                    {(["none", "strict"] as NetworkPolicy[]).map((p) => (
-                      <button
-                        key={String(p)}
-                        className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors cursor-pointer ${
-                          current.networkPolicy === p
-                            ? "bg-primary/10 border-primary/30 text-primary"
-                            : "border-border text-text-muted hover:border-border-bright hover:text-text-primary"
-                        }`}
-                        onClick={() => patchStep(selectedIdx, { networkPolicy: p })}
-                      >
-                        {NETWORK_POLICY_LABELS[String(p)].label}
-                      </button>
-                    ))}
+                <div className="space-y-4">
+                  {aiConfigs.length > 0 && (
+                    <AiModelDropdown
+                      aiConfigs={aiConfigs}
+                      provider={current.provider}
+                      model={current.model}
+                      onChange={(provider, model) => patchStep(selectedIdx, { provider, model })}
+                    />
+                  )}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Network policy</label>
+                    <div className="flex gap-1">
+                      {(["none", "strict"] as NetworkPolicy[]).map((p) => (
+                        <button
+                          key={String(p)}
+                          className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors cursor-pointer ${
+                            current.networkPolicy === p
+                              ? "bg-primary/10 border-primary/30 text-primary"
+                              : "border-border text-text-muted hover:border-border-bright hover:text-text-primary"
+                          }`}
+                          onClick={() => patchStep(selectedIdx, { networkPolicy: p })}
+                        >
+                          {NETWORK_POLICY_LABELS[String(p)].label}
+                        </button>
+                      ))}
+                    </div>
+                    <Hint>{NETWORK_POLICY_LABELS[current.networkPolicy ?? "none"].description}</Hint>
                   </div>
-                  <Hint>{NETWORK_POLICY_LABELS[current.networkPolicy ?? "none"].description}</Hint>
                 </div>
               </div>
 
