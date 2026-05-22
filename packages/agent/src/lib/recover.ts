@@ -131,6 +131,46 @@ async function recoverSingle(
   }
 }
 
+export async function pruneOrphanedVolumes(): Promise<void> {
+  try {
+    const taskIds = await requestFromDashboard<number[]>({
+      type: "agent_request",
+      command: "get_task_ids",
+      payload: {},
+    });
+    const idSet = new Set(taskIds.map(String));
+
+    const { ok, stdout } = await runShell("podman volume ls --format '{{.Name}}'");
+    if (!ok) return;
+
+    const toRemove: string[] = [];
+    for (const vol of stdout.split("\n").filter(Boolean)) {
+      if (!vol.startsWith("task-session-") && !vol.startsWith("shadow-")) continue;
+
+      // Old UUID-format volumes (e.g. task-session-6e86ad6b-dc29-...) are always orphaned
+      if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/.test(vol)) {
+        toRemove.push(vol);
+        continue;
+      }
+
+      // shadow-*-{16hexchars} are project-level deps caches — never remove
+      if (/^shadow-[^-]+-[0-9a-f]{16}$/.test(vol)) continue;
+
+      // Compound format: volume contains -${taskId}- or ends with -${taskId}
+      // taskIds are decimal integers; if none match, the volume is orphaned
+      const orphaned = ![...idSet].some(id => vol.includes(`-${id}-`) || vol.endsWith(`-${id}`));
+      if (orphaned) toRemove.push(vol);
+    }
+
+    if (toRemove.length > 0) {
+      log.info(`Pruning ${toRemove.length} orphaned volume(s): ${toRemove.join(", ")}`);
+      await runShell(`podman volume rm ${toRemove.map(v => JSON.stringify(v)).join(" ")} 2>/dev/null || true`);
+    }
+  } catch (err: any) {
+    log.warn(`Orphaned volume prune failed: ${err.message}`);
+  }
+}
+
 export async function recoverStuckTasks(): Promise<void> {
   try {
     const stuck = await requestFromDashboard<StuckIssue[]>({

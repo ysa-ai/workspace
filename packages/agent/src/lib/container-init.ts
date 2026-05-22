@@ -95,11 +95,13 @@ export async function initContainerFiles(onLog?: (line: string) => void, onVerbo
     await cleanupProjectArtifacts();
     const result = await buildBaseImages(CA_DIR, onVerbose);
     if (!result.ok) throw new Error(`Image build failed: ${result.error}`);
+    await Bun.spawn(["podman", "image", "prune", "-f"], { stdout: "ignore", stderr: "ignore" }).exited;
     await Bun.write(VERSION_FILE, AGENT_VERSION);
   } else if (isFirstInstall || anyMissing) {
     onLog?.("Building sandbox images (this may take a few minutes)...");
     const result = await buildBaseImages(CA_DIR, onVerbose);
     if (!result.ok) throw new Error(`Image build failed: ${result.error}`);
+    await Bun.spawn(["podman", "image", "prune", "-f"], { stdout: "ignore", stderr: "ignore" }).exited;
     await Bun.write(VERSION_FILE, AGENT_VERSION);
   }
 }

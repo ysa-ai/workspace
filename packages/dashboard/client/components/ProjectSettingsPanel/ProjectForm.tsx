@@ -43,12 +43,15 @@ function buildSharedValues(project: Project): SharedFormValues {
       }
     })(),
     network_policy: project.network_policy,
+    bypass_hosts: (() => { try { const a = JSON.parse(project.bypass_hosts ?? "[]"); return Array.isArray(a) ? a.join("\n") : ""; } catch { return ""; } })(),
     install_cmd: project.install_cmd || "",
     build_cmd: project.build_cmd || "",
     pre_dev_cmd: project.pre_dev_cmd || "",
     dev_servers: parseDevServers(project.dev_servers),
     test_cmd: project.test_cmd || "",
     deps_cache_files: (() => { try { const a = JSON.parse(project.deps_cache_files ?? "[]"); return Array.isArray(a) ? a.join("\n") : ""; } catch { return ""; } })(),
+    packages: (() => { try { const a = JSON.parse(project.packages ?? "[]"); return Array.isArray(a) ? a.join("\n") : ""; } catch { return ""; } })(),
+    container_init_commands: (() => { try { const a = JSON.parse(project.container_init_commands ?? "[]"); return Array.isArray(a) ? a.join("\n") : ""; } catch { return ""; } })(),
   };
 }
 
@@ -63,12 +66,15 @@ function buildSharedPayload(values: SharedFormValues) {
     worktree_files: serializeWorktreeFiles(values.worktree_files.map((f) => f.value)),
     languages: values.languages.length ? JSON.stringify(values.languages) : null,
     network_policy: values.network_policy as "none" | "strict" | "custom",
+    bypass_hosts: (() => { const lines = values.bypass_hosts.split("\n").map((l) => l.trim()).filter(Boolean); return lines.length ? JSON.stringify(lines) : null; })(),
     install_cmd: values.install_cmd || null,
     build_cmd: values.build_cmd || null,
     pre_dev_cmd: values.pre_dev_cmd || null,
     dev_servers: serializeDevServers(values.dev_servers),
     test_cmd: values.test_cmd || null,
     deps_cache_files: (() => { const lines = values.deps_cache_files.split("\n").map((l) => l.trim()).filter(Boolean); return lines.length ? JSON.stringify(lines) : null; })(),
+    packages: (() => { const lines = values.packages.split("\n").map((l) => l.trim()).filter(Boolean); return lines.length ? JSON.stringify(lines) : null; })(),
+    container_init_commands: (() => { const lines = values.container_init_commands.split("\n").map((l) => l.trim()).filter(Boolean); return lines.length ? JSON.stringify(lines) : null; })(),
   };
 }
 

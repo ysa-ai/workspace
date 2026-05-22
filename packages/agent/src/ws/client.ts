@@ -262,6 +262,7 @@ function configFromPayload(payload: Record<string, unknown>): AgentConfig {
     containerCpus: (src.containerCpus as number) || undefined,
     containerPidsLimit: (src.containerPidsLimit as number) || undefined,
     containerTimeout: (src.containerTimeout as number) || undefined,
+    bypassHosts: Array.isArray(src.bypassHosts) ? (src.bypassHosts as string[]) : undefined,
   };
 }
 
@@ -505,9 +506,11 @@ async function handleCommand(
       case "buildProject": {
         const {
           projectId, projectRoot, ysaToml, apkPackages, projectImage, containerImage,
-          packageManager, tools, miseVolume, env, runtimeEnv, copyDirs,
+          packageManager, tools, env, runtimeEnv, copyDirs,
           hadApkImage, oldImage,
         } = payload as Record<string, any>;
+
+        const installsPath = join(homedir(), ".cache", "ysa-agent", "mise-installs", projectId as string);
 
         if (projectRoot && ysaToml !== undefined) {
           await mkdir(join(projectRoot, ".ysa"), { recursive: true });
@@ -517,7 +520,7 @@ async function handleCommand(
         if (hadApkImage && oldImage) {
           await Bun.spawn(["podman", "rmi", "-f", oldImage], { stdout: "ignore", stderr: "ignore" }).exited;
         }
-        await Bun.spawn(["podman", "volume", "rm", miseVolume], { stdout: "ignore", stderr: "ignore" }).exited;
+        await Bun.spawn(["bash", "-c", `rm -rf "${installsPath}" && mkdir -p "${installsPath}"`], { stdout: "ignore", stderr: "ignore" }).exited;
 
         const { buildProjectImage, installRuntimes, rebuildSandboxImage, getImageCfHash, getContainerDir } = await import("@ysa-ai/ysa/runtime");
 
@@ -543,16 +546,17 @@ async function handleCommand(
         }
 
         const globalPkgs: string[] = (payload as any).globalPackages ?? [];
-        log.info(`Building project runtime (volume: ${miseVolume})...`);
+        log.info(`Building project runtime (path: ${installsPath})...`);
         if ((apkPackages as string[]).length > 0 || globalPkgs.length > 0) {
           const result = await buildProjectImage(apkPackages, projectImage, containerImage, packageManager, globalPkgs, onLog);
           if (!result.ok) { sendAck(requestId, false, undefined, result.error); break; }
         }
         if ((tools as any[]).length > 0) {
-          const result = await installRuntimes(tools, miseVolume, projectImage, env, runtimeEnv, copyDirs, onLog);
+          const result = await installRuntimes(tools, installsPath, projectImage, env, runtimeEnv, copyDirs, onLog);
           if (!result.ok) { sendAck(requestId, false, undefined, result.error); break; }
         }
         log.info(`Project runtime build complete.`);
+        await Bun.spawn(["podman", "image", "prune", "-f"], { stdout: "ignore", stderr: "ignore" }).exited;
 
         sendAck(requestId, true);
         break;

@@ -33,6 +33,7 @@ export interface AgentConfig {
   containerCpus?: number;
   containerPidsLimit?: number;
   containerTimeout?: number;
+  bypassHosts?: string[];
   issueSource?: "gitlab" | "github";
   sourceType?: "provider" | "prompt" | "detect";
   codeRepoUrl?: string;

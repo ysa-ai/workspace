@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { connectToDashboard, disconnect } from "../ws/client.js";
-import { recoverStuckTasks } from "../lib/recover.js";
+import { recoverStuckTasks, pruneOrphanedVolumes } from "../lib/recover.js";
 import { warmKeyCache } from "../lib/keystore.js";
 import { warmConfigCache } from "../lib/config-store.js";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
@@ -78,6 +78,7 @@ export async function startCommand(opts: { url?: string; verbose?: boolean } = {
   if (latestCreds) scheduleTokenRefresh(latestCreds.refreshToken, latestCreds.accessToken);
 
   await recoverStuckTasks();
+  await pruneOrphanedVolumes();
 
   process.on("SIGINT", () => { disconnect(); process.exit(0); });
   process.on("SIGTERM", () => { disconnect(); process.exit(0); });

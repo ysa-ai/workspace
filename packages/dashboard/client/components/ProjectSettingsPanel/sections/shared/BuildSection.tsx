@@ -77,6 +77,17 @@ export function BuildSection({ projectId, showBuild, onBuildDone }: { projectId?
         />
       </Field>
       <Field
+        label="APT packages"
+        hint="Extra system packages installed in the container image. One per line. Example: redis-server"
+      >
+        <textarea
+          {...register("packages")}
+          className={`w-full bg-bg-inset border border-border rounded-lg px-3 py-2 text-[13px] text-text-primary outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-all font-mono resize-none text-[11px]`}
+          placeholder={"redis-server\nchromium"}
+          rows={3}
+        />
+      </Field>
+      <Field
         label="Language runtimes"
         hint="Pre-installs language runtimes before the agent runs. APK-based languages (Ruby, PHP, Java, C/C++, Elixir) build a per-project image; mise-based languages use a per-project volume."
       >

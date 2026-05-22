@@ -77,6 +77,9 @@ const orgProjectInput = z.object({
   qa_enabled: z.number().int().min(0).max(1).optional(),
   test_cmd: z.string().nullable().optional(),
   deps_cache_files: z.string().nullable().optional(),
+  container_init_commands: z.string().nullable().optional(),
+  packages: z.string().nullable().optional(),
+  bypass_hosts: z.string().nullable().optional(),
 });
 
 const userSettingsInput = z.object({
@@ -182,7 +185,30 @@ export const projectsRouter = router({
     }),
 
   list: publicProcedure.query(async ({ ctx }) => {
-    return db.select().from(projects).where(eq(projects.org_id, ctx.orgId)).orderBy(projects.name);
+    const rows = await db.select().from(projects).where(eq(projects.org_id, ctx.orgId)).orderBy(projects.name);
+    if (!ctx.userId || rows.length === 0) return rows;
+    const projectIds = rows.map((r) => r.project_id);
+    const userSettings = await db.select({
+      project_id: userProjectSettings.project_id,
+      container_memory: userProjectSettings.container_memory,
+      container_cpus: userProjectSettings.container_cpus,
+      container_pids_limit: userProjectSettings.container_pids_limit,
+      container_timeout: userProjectSettings.container_timeout,
+    }).from(userProjectSettings).where(
+      and(eq(userProjectSettings.user_id, ctx.userId), inArray(userProjectSettings.project_id, projectIds))
+    );
+    const settingsMap = new Map(userSettings.map((s) => [s.project_id, s]));
+    return rows.map((r) => {
+      const us = settingsMap.get(r.project_id);
+      if (!us) return r;
+      return {
+        ...r,
+        container_memory: us.container_memory ?? r.container_memory,
+        container_cpus: us.container_cpus ?? r.container_cpus,
+        container_pids_limit: us.container_pids_limit ?? r.container_pids_limit,
+        container_timeout: us.container_timeout ?? r.container_timeout,
+      };
+    });
   }),
 
   get: publicProcedure
@@ -278,6 +304,9 @@ export const projectsRouter = router({
         qa_enabled: (orgFields.qa_enabled ?? 0) === 1,
         test_cmd: orgFields.test_cmd ?? null,
         deps_cache_files: orgFields.deps_cache_files ?? null,
+        container_init_commands: orgFields.container_init_commands ?? null,
+        packages: orgFields.packages ?? null,
+        bypass_hosts: orgFields.bypass_hosts ?? null,
         issue_source: orgFields.issue_source ?? "gitlab",
         code_repo_url: orgFields.code_repo_url ?? null,
         gitlab_project_id: await fetchGitlabProjectId(orgFields.issue_url_template ?? "", issue_source_token),
@@ -351,9 +380,13 @@ export const projectsRouter = router({
         const projectImage = projectRoot && (apkPackages.length > 0 || moduleGlobalPackages.length > 0) ? projectImageName(projectRoot, adapter.id) : adapter.containerImage;
         const miseVolume = `mise-installs-${projectId}`;
 
+        const userPkgs1: string[] = (() => { try { return JSON.parse(existing.packages ?? "[]"); } catch { return []; } })();
+        for (const pkg of userPkgs1) { if (!apkPackages.includes(pkg)) apkPackages.push(pkg); }
+        const initCmds: string[] = (() => { try { return JSON.parse(existing.container_init_commands ?? "[]"); } catch { return []; } })();
         const tomlLines = [`[sandbox]`];
         if (apkPackages.length > 0) tomlLines.push(`packages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]`);
         if (moduleGlobalPackages.length > 0) tomlLines.push(`global_packages = [${moduleGlobalPackages.map((p) => `"${p}"`).join(", ")}]`);
+        if (initCmds.length > 0) tomlLines.push(`init_commands = [${initCmds.map((c) => `"${c}"`).join(", ")}]`);
         const ysaToml = tomlLines.length > 1 ? tomlLines.join("\n") + "\n" : "";
         const buildPayload = {
           projectId,
@@ -460,9 +493,13 @@ export const projectsRouter = router({
             ? projectImageName(projectRoot, adapter.id)
             : adapter.containerImage;
           const miseVolume = `mise-installs-${input.projectId}`;
+          const userPkgs2: string[] = (() => { try { return JSON.parse(existing.packages ?? "[]"); } catch { return []; } })();
+          for (const pkg of userPkgs2) { if (!apkPackages.includes(pkg)) apkPackages.push(pkg); }
+          const wfInitCmds: string[] = (() => { try { return JSON.parse(existing.container_init_commands ?? "[]"); } catch { return []; } })();
           const tomlLines = [`[sandbox]`];
           if (apkPackages.length > 0) tomlLines.push(`packages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]`);
           if (extraGlobalPackages.length > 0) tomlLines.push(`global_packages = [${extraGlobalPackages.map((p) => `"${p}"`).join(", ")}]`);
+          if (wfInitCmds.length > 0) tomlLines.push(`init_commands = [${wfInitCmds.map((c) => `"${c}"`).join(", ")}]`);
           const ysaToml = tomlLines.join("\n") + "\n";
           startBuild(input.projectId, async () => {
             try {
@@ -573,9 +610,13 @@ export const projectsRouter = router({
         ? projectImageName(projectRoot, adapter.id)
         : adapter.containerImage;
       const miseVolume = `mise-installs-${input.projectId}`;
+      const userPkgs3: string[] = (() => { try { return JSON.parse(existing.packages ?? "[]"); } catch { return []; } })();
+      for (const pkg of userPkgs3) { if (!apkPackages.includes(pkg)) apkPackages.push(pkg); }
+      const rebuildInitCmds: string[] = (() => { try { return JSON.parse(existing.container_init_commands ?? "[]"); } catch { return []; } })();
       const tomlLines = [`[sandbox]`];
       if (apkPackages.length > 0) tomlLines.push(`packages = [${apkPackages.map((p) => `"${p}"`).join(", ")}]`);
       if (moduleGlobalPackages.length > 0) tomlLines.push(`global_packages = [${moduleGlobalPackages.map((p) => `"${p}"`).join(", ")}]`);
+      if (rebuildInitCmds.length > 0) tomlLines.push(`init_commands = [${rebuildInitCmds.map((c) => `"${c}"`).join(", ")}]`);
       const ysaToml = tomlLines.length > 1 ? tomlLines.join("\n") + "\n" : "";
       startBuild(input.projectId, async () => {
         try {

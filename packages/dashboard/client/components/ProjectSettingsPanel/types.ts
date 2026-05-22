@@ -15,12 +15,15 @@ export interface SharedFormValues {
   worktree_files: { value: string }[];
   languages: string[];
   network_policy: string;
+  bypass_hosts: string;
   install_cmd: string;
   build_cmd: string;
   pre_dev_cmd: string;
   dev_servers: DevServerEntry[];
   test_cmd: string;
   deps_cache_files: string;
+  packages: string;
+  container_init_commands: string;
 }
 
 export interface UserFormValues {
@@ -57,6 +60,9 @@ export interface Project {
   dev_servers: string | null;
   test_cmd: string | null;
   deps_cache_files: string | null;
+  packages: string | null;
+  container_init_commands: string | null;
+  bypass_hosts: string | null;
   is_default: boolean;
   workflow_id: number | null;
 }
@@ -76,9 +82,9 @@ export const PERSONAL_SECTION_IDS = new Set(["paths", "ai_settings", "container"
 export const SECTION_FIELDS: Record<string, string[]> = {
   general: ["name", "branch_prefix", "default_branch"],
   integration: ["issue_source", "issue_url_template", "code_repo_url"],
-  build: ["install_cmd", "build_cmd", "pre_dev_cmd", "test_cmd", "languages", "dev_servers", "deps_cache_files"],
-  security: ["network_policy"],
-  advanced: ["worktree_files"],
+  build: ["install_cmd", "build_cmd", "pre_dev_cmd", "test_cmd", "languages", "dev_servers", "deps_cache_files", "packages"],
+  security: ["network_policy", "bypass_hosts"],
+  advanced: ["worktree_files", "container_init_commands"],
   paths: ["project_root", "worktree_prefix", "npmrc_path", "env_vars", "mcp_config"],
   ai_settings: [],
   container: ["container_memory", "container_cpus", "container_pids_limit", "container_timeout"],
@@ -211,12 +217,15 @@ export const defaultSharedValues: SharedFormValues = {
   worktree_files: [],
   languages: [],
   network_policy: "none",
+  bypass_hosts: "",
   install_cmd: "",
   build_cmd: "",
   pre_dev_cmd: "",
   dev_servers: [],
   test_cmd: "",
   deps_cache_files: "",
+  packages: "",
+  container_init_commands: "",
 };
 
 export const defaultUserValues: UserFormValues = {

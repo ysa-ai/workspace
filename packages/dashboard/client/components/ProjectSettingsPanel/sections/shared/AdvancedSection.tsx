@@ -3,7 +3,7 @@ import { useFormContext, useFieldArray } from "react-hook-form";
 import { trpc } from "../../../../trpc";
 import { useToast } from "../../../Toast";
 import { Field } from "../../ui";
-import { INPUT_BASE } from "../../types";
+import { INPUT_BASE, INPUT_MONO_CLS } from "../../types";
 import type { SharedFormValues } from "../../types";
 
 export function AdvancedSection({ projectRoot }: { projectRoot: string }) {
@@ -72,6 +72,17 @@ export function AdvancedSection({ projectRoot }: { projectRoot: string }) {
             {pickingField ? "Browsing…" : "Add"}
           </button>
         </div>
+      </Field>
+      <Field
+        label="Container init commands"
+        hint="Shell commands run inside the container before the agent starts. One command per line. Example: redis-server --daemonize yes"
+      >
+        <textarea
+          {...register("container_init_commands")}
+          className={`${INPUT_MONO_CLS} resize-none`}
+          rows={4}
+          placeholder={"redis-server --daemonize yes\nother-service start"}
+        />
       </Field>
     </div>
   );

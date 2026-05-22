@@ -139,7 +139,7 @@ async function fileExists(path: string): Promise<boolean> {
 }
 
 const LANG_DEP_PATTERNS: Partial<Record<string, string[]>> = {
-  node:       ["**/package.json", "**/bun.lockb", "**/package-lock.json", "**/yarn.lock", "**/pnpm-lock.yaml"],
+  node:       ["**/package.json", "**/bun.lock", "**/bun.lockb", "**/package-lock.json", "**/yarn.lock", "**/pnpm-lock.yaml"],
   python:     ["**/requirements.txt", "**/poetry.lock", "**/uv.lock", "**/Pipfile.lock"],
   rust:       ["**/Cargo.lock"],
   go:         ["**/go.sum"],
@@ -355,7 +355,9 @@ export async function runPhase(
   }
 
   const langs = (config.languages ?? []) as DetectedLanguage[];
-  const projectMiseVolume = config.projectId && langs.length > 0 ? `mise-installs-${config.projectId}` : undefined;
+  const projectMiseInstallsPath = config.projectId && langs.length > 0
+    ? join(homedir(), ".cache", "ysa-agent", "mise-installs", config.projectId)
+    : undefined;
   const depsCacheKey = config.installCmd
     ? await computeDepsCacheKey(config.projectRoot, config.languages ?? [], config.depsCacheFiles ?? [])
     : undefined;
@@ -379,12 +381,13 @@ export async function runPhase(
       promptUrl: `${containerDashboardUrl}/api/tasks/${taskId}/prompt?step=${phase}`,
       allowCommit: stepDef.containerMode !== "readonly",
       worktreeFiles: config.worktreeFiles,
-      miseVolume: projectMiseVolume,
+      miseInstallsPath: projectMiseInstallsPath,
       depInstallCmd: config.installCmd || undefined,
       depsCacheKey,
       extraEnv,
       extraLabels: { issue: taskId, phase, project: config.projectId ?? "" },
       proxyRules: scopedRules.length > 0 ? scopedRules : undefined,
+      bypassHosts: config.bypassHosts?.length ? config.bypassHosts : undefined,
       serverPort: config.dashboardPort,
       containerMemory: config.containerMemory,
       containerCpus: config.containerCpus,

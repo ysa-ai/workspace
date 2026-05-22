@@ -152,6 +152,12 @@ export async function handleAgentRequest(command: string, payload: Record<string
       break;
     }
 
+    case "get_task_ids": {
+      const rows = await db.select({ task_id: tasks.task_id }).from(tasks);
+      respond(true, rows.map(r => r.task_id));
+      break;
+    }
+
     default:
       respond(false, undefined, `Unknown agent command: ${command}`);
   }

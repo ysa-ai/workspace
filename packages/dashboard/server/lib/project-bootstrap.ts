@@ -63,6 +63,7 @@ export type ProjectConfig = {
   containerCpus: number;
   containerPidsLimit: number;
   containerTimeout: number;
+  bypassHosts: string[];
 };
 
 export function applyUserSettings(
@@ -119,6 +120,7 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     containerCpus: 2,
     containerPidsLimit: 512,
     containerTimeout: 3600,
+    bypassHosts: [],
   };
 
   if (!projectId) {
@@ -185,6 +187,7 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     containerCpus: row.container_cpus ?? 2,
     containerPidsLimit: row.container_pids_limit ?? 512,
     containerTimeout: row.container_timeout ?? 3600,
+    bypassHosts: (() => { try { return JSON.parse(row.bypass_hosts ?? "[]"); } catch { return []; } })(),
   };
 
   return applyUserSettings(orgBase, userSettings, row.issue_source_token, config.masterKey);

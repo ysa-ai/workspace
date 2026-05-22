@@ -30,6 +30,7 @@ const orgBase = {
   containerCpus: 2,
   containerPidsLimit: 512,
   containerTimeout: 3600,
+  bypassHosts: [],
 };
 
 describe("applyUserSettings", () => {
