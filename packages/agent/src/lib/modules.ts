@@ -33,26 +33,29 @@ Do NOT use \`gh\`, \`WebFetch\`, or any MCP tool to read the issue.`,
 
 **Only run this module if the changes include frontend code** (UI components, styles, client-side logic, templates). If the changes are purely backend, infrastructure, or configuration with no visible frontend impact, set status to "skipped" in your result and stop.
 
-**Setup** — write this capture script once:
+**Setup** — write this capture script once. It lives in /tmp (NOT the worktree) so it is never committed. Installing playwright-core in /tmp/.playwright (a non-project dir) makes \`import "playwright-core"\` resolve there — never use the worktree, whose lockfile has no playwright-core:
 \`\`\`
-mkdir -p /workspace/.playwright
-cat > /workspace/.playwright/capture.ts << 'EOF'
+mkdir -p /tmp/.playwright
+( cd /tmp/.playwright && bun add playwright-core )
+cat > /tmp/.playwright/capture.ts << 'EOF'
 import { chromium } from "playwright-core";
 const url = process.argv[2];
 if (!url) { console.error("Usage: bun capture.ts <url>"); process.exit(1); }
 const browser = await chromium.launch({
   executablePath: "/usr/bin/chromium",
   headless: true,
-  args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-crash-reporter", "--no-crashpad", "--disable-gpu"],
+  args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
 const page = await browser.newPage();
 const consoleErrors: string[] = [];
 page.on("console", msg => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
-await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
-const screenshotPath = \`/workspace/.playwright/\${Date.now()}.png\`;
+await page.goto(url, { waitUntil: "load", timeout: 30000 });
+const screenshotPath = \`/tmp/.playwright/\${Date.now()}.png\`;
 await page.screenshot({ path: screenshotPath, fullPage: true });
-const tree = await page.accessibility.snapshot();
-console.log(JSON.stringify({ screenshotPath, consoleErrors, accessibility: tree }, null, 2));
+const title = await page.title();
+const outline = await page.$$eval("h1,h2,h3,button,a,[role]", els =>
+  els.slice(0, 50).map(e => \`\${e.tagName.toLowerCase()}: \${(e.textContent || "").trim().slice(0, 60)}\`));
+console.log(JSON.stringify({ screenshotPath, title, consoleErrors, outline }, null, 2));
 await browser.close();
 EOF
 \`\`\`
@@ -62,7 +65,7 @@ EOF
 1. Start **all** configured dev servers listed in the preamble in the background, each logging to a file (e.g. \`cmd > /tmp/server-name.log 2>&1 &\`). The app typically needs API + frontend servers running together.
 2. Wait 5 seconds, then read each server's log file to check for startup crashes. If a server crashed, set status to \`"failed"\` with the crash output in \`summary\` and stop immediately.
 3. Poll each server's port every 2 seconds for up to 60 seconds: \`curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>\`. Stop as soon as you get 200/301/302. If not ready after 60 seconds, read its log again and set status to \`"failed"\` with the error — stop immediately.
-4. Run \`bun /workspace/.playwright/capture.ts <url>\` — captures a screenshot and accessibility tree.
+4. Run \`bun /tmp/.playwright/capture.ts <url>\` — captures a screenshot and a DOM outline (headings, buttons, links, ARIA roles).
 5. Read the PNG file at the path printed in the output using your Read tool to visually inspect the UI.
 6. Check \`consoleErrors\` in the JSON output for JS errors.
 7. Navigate to other pages or states as needed by running the script again with different URLs.
