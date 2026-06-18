@@ -352,11 +352,18 @@ export async function runPhase(
     const noProxy = Array.from(noProxyHosts).join(",");
     extraEnv.NO_PROXY = noProxy;
     extraEnv.no_proxy = noProxy;
+    // Disable telemetry — in strict network mode, telemetry registration attempts
+    // are SYN-dropped by iptables, causing TCP retransmit timeouts (~63s) that
+    // block server startup (e.g. Next.js "Ready" delayed by telemetry network call).
+    extraEnv.SANDBOX = "1";
+    extraEnv.NEXT_TELEMETRY_DISABLED = "1";
+    extraEnv.TURBO_TELEMETRY_DISABLED = "1";
+    extraEnv.SENTRY_DISABLED = "1";
   }
 
   const langs = (config.languages ?? []) as DetectedLanguage[];
   const projectMiseInstallsPath = config.projectId && langs.length > 0
-    ? join(homedir(), ".cache", "ysa-agent", "mise-installs", config.projectId)
+    ? join(homedir(), ".ysa", "mise-installs", config.projectId)
     : undefined;
   const depsCacheKey = config.installCmd
     ? await computeDepsCacheKey(config.projectRoot, config.languages ?? [], config.depsCacheFiles ?? [])
@@ -388,10 +395,13 @@ export async function runPhase(
       extraLabels: { issue: taskId, phase, project: config.projectId ?? "" },
       proxyRules: scopedRules.length > 0 ? scopedRules : undefined,
       bypassHosts: config.bypassHosts?.length ? config.bypassHosts : undefined,
+      containerInitCommands: config.containerInitCommands?.length ? config.containerInitCommands : undefined,
+      packages: config.packages?.length ? config.packages : undefined,
       serverPort: config.dashboardPort,
       containerMemory: config.containerMemory,
       containerCpus: config.containerCpus,
       containerPidsLimit: config.containerPidsLimit,
+      containerStackSize: config.containerStackSize,
     }, {
       onComplete: async (result) => {
         log.info(`Sandbox exited for task #${taskId} (${phase}): ${result.status}`);

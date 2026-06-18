@@ -29,8 +29,11 @@ const orgBase = {
   containerMemory: "4g",
   containerCpus: 2,
   containerPidsLimit: 512,
+  containerStackSize: null as number | null,
   containerTimeout: 3600,
   bypassHosts: [],
+  containerInitCommands: [],
+  packages: [],
 };
 
 describe("applyUserSettings", () => {

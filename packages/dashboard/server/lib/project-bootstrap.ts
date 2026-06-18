@@ -15,6 +15,7 @@ type UserSettingsLike = {
   container_memory?: string | null;
   container_cpus?: number | null;
   container_pids_limit?: number | null;
+  container_stack_size?: number | null;
   container_timeout?: number | null;
 };
 
@@ -62,8 +63,11 @@ export type ProjectConfig = {
   containerMemory: string;
   containerCpus: number;
   containerPidsLimit: number;
+  containerStackSize: number | null;
   containerTimeout: number;
   bypassHosts: string[];
+  containerInitCommands: string[];
+  packages: string[];
 };
 
 export function applyUserSettings(
@@ -92,6 +96,7 @@ export function applyUserSettings(
     containerMemory: userSettings?.container_memory ?? base.containerMemory,
     containerCpus: userSettings?.container_cpus ?? base.containerCpus,
     containerPidsLimit: userSettings?.container_pids_limit ?? base.containerPidsLimit,
+    containerStackSize: userSettings?.container_stack_size ?? base.containerStackSize,
     containerTimeout: userSettings?.container_timeout ?? base.containerTimeout,
   };
 }
@@ -119,8 +124,11 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     containerMemory: "4g",
     containerCpus: 2,
     containerPidsLimit: 512,
+    containerStackSize: null,
     containerTimeout: 3600,
     bypassHosts: [],
+    containerInitCommands: [],
+    packages: [],
   };
 
   if (!projectId) {
@@ -186,8 +194,11 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     containerMemory: row.container_memory || "4g",
     containerCpus: row.container_cpus ?? 2,
     containerPidsLimit: row.container_pids_limit ?? 512,
+    containerStackSize: row.container_stack_size ?? null,
     containerTimeout: row.container_timeout ?? 3600,
-    bypassHosts: (() => { try { return JSON.parse(row.bypass_hosts ?? "[]"); } catch { return []; } })(),
+    bypassHosts: (() => { const v = row.bypass_hosts?.trim() ?? ""; if (!v) return []; try { return JSON.parse(v); } catch { return v.split("\n").map(s => s.trim()).filter(Boolean); } })(),
+    containerInitCommands: (() => { try { const a = JSON.parse(row.container_init_commands ?? "[]"); return Array.isArray(a) ? a : []; } catch { return []; } })(),
+    packages: (() => { try { const a = JSON.parse(row.packages ?? "[]"); return Array.isArray(a) ? a : []; } catch { return []; } })(),
   };
 
   return applyUserSettings(orgBase, userSettings, row.issue_source_token, config.masterKey);

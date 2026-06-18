@@ -39,6 +39,17 @@ export function ContainerSection() {
           />
         </Field>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Stack size (bytes)" hint="OS thread stack ulimit — increase if you hit stack overflows (e.g. 67108864 for 64MB)">
+          <input
+            type="number"
+            {...register("container_stack_size", { valueAsNumber: true, setValueAs: (v) => v === "" || isNaN(v) ? null : Number(v) })}
+            className={INPUT_MONO_CLS}
+            min={8388608}
+            placeholder="default"
+          />
+        </Field>
+      </div>
     </div>
   );
 }

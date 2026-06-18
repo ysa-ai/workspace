@@ -35,6 +35,7 @@ export interface UserFormValues {
   container_memory: string;
   container_cpus: number;
   container_pids_limit: number;
+  container_stack_size: number | null;
   container_timeout: number;
 }
 
@@ -87,7 +88,7 @@ export const SECTION_FIELDS: Record<string, string[]> = {
   advanced: ["worktree_files", "container_init_commands"],
   paths: ["project_root", "worktree_prefix", "npmrc_path", "env_vars", "mcp_config"],
   ai_settings: [],
-  container: ["container_memory", "container_cpus", "container_pids_limit", "container_timeout"],
+  container: ["container_memory", "container_cpus", "container_pids_limit", "container_stack_size", "container_timeout"],
 };
 
 export function isSectionDirty(sectionId: string, dirtyFields: object): boolean {
@@ -237,5 +238,6 @@ export const defaultUserValues: UserFormValues = {
   container_memory: "4g",
   container_cpus: 2,
   container_pids_limit: 512,
+  container_stack_size: null,
   container_timeout: 3600,
 };

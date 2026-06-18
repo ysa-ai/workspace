@@ -88,6 +88,7 @@ function buildUserPayload(values: UserFormValues) {
     container_memory: values.container_memory || null,
     container_cpus: values.container_cpus || null,
     container_pids_limit: values.container_pids_limit || null,
+    container_stack_size: values.container_stack_size || null,
     container_timeout: values.container_timeout || null,
   };
 }
@@ -138,6 +139,7 @@ export function ProjectForm({
         container_memory: userSettingsData.container_memory ?? "4g",
         container_cpus: userSettingsData.container_cpus ?? 2,
         container_pids_limit: userSettingsData.container_pids_limit ?? 512,
+        container_stack_size: userSettingsData.container_stack_size ?? null,
         container_timeout: userSettingsData.container_timeout ?? 3600,
       });
     }

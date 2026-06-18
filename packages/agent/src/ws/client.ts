@@ -261,8 +261,11 @@ function configFromPayload(payload: Record<string, unknown>): AgentConfig {
     containerMemory: (src.containerMemory as string) || undefined,
     containerCpus: (src.containerCpus as number) || undefined,
     containerPidsLimit: (src.containerPidsLimit as number) || undefined,
+    containerStackSize: (src.containerStackSize as number) || undefined,
     containerTimeout: (src.containerTimeout as number) || undefined,
     bypassHosts: Array.isArray(src.bypassHosts) ? (src.bypassHosts as string[]) : undefined,
+    containerInitCommands: Array.isArray(src.containerInitCommands) ? (src.containerInitCommands as string[]) : undefined,
+    packages: Array.isArray(src.packages) ? (src.packages as string[]) : undefined,
   };
 }
 
@@ -510,7 +513,7 @@ async function handleCommand(
           hadApkImage, oldImage,
         } = payload as Record<string, any>;
 
-        const installsPath = join(homedir(), ".cache", "ysa-agent", "mise-installs", projectId as string);
+        const installsPath = join(homedir(), ".ysa", "mise-installs", projectId as string);
 
         if (projectRoot && ysaToml !== undefined) {
           await mkdir(join(projectRoot, ".ysa"), { recursive: true });

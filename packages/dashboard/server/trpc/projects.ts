@@ -94,6 +94,7 @@ const userSettingsInput = z.object({
   container_memory: z.string().nullable().optional(),
   container_cpus: z.number().int().positive().nullable().optional(),
   container_pids_limit: z.number().int().positive().nullable().optional(),
+  container_stack_size: z.number().int().positive().nullable().optional(),
   container_timeout: z.number().int().positive().nullable().optional(),
 });
 
@@ -102,7 +103,7 @@ async function upsertUserSettings(
   projectId: string,
   input: z.infer<typeof userSettingsInput>,
 ) {
-  const { project_root, worktree_prefix, npmrc_path, env_vars, mcp_config, issue_source_token, code_repo_token, default_credential_name, container_memory, container_cpus, container_pids_limit, container_timeout } = input;
+  const { project_root, worktree_prefix, npmrc_path, env_vars, mcp_config, issue_source_token, code_repo_token, default_credential_name, container_memory, container_cpus, container_pids_limit, container_stack_size, container_timeout } = input;
   const finalWorktreePrefix = worktree_prefix !== undefined
     ? worktree_prefix
     : (project_root ? `${project_root}/.ysa/worktrees/` : undefined);
@@ -123,6 +124,7 @@ async function upsertUserSettings(
   if (container_memory !== undefined) values.container_memory = container_memory;
   if (container_cpus !== undefined) values.container_cpus = container_cpus;
   if (container_pids_limit !== undefined) values.container_pids_limit = container_pids_limit;
+  if (container_stack_size !== undefined) values.container_stack_size = container_stack_size;
   if (container_timeout !== undefined) values.container_timeout = container_timeout;
 
   if (existing) {
@@ -141,6 +143,7 @@ async function upsertUserSettings(
       container_memory: (container_memory ?? null) as string | null,
       container_cpus: (container_cpus ?? null) as number | null,
       container_pids_limit: (container_pids_limit ?? null) as number | null,
+      container_stack_size: (container_stack_size ?? null) as number | null,
       container_timeout: (container_timeout ?? null) as number | null,
     });
   }
@@ -193,6 +196,7 @@ export const projectsRouter = router({
       container_memory: userProjectSettings.container_memory,
       container_cpus: userProjectSettings.container_cpus,
       container_pids_limit: userProjectSettings.container_pids_limit,
+      container_stack_size: userProjectSettings.container_stack_size,
       container_timeout: userProjectSettings.container_timeout,
     }).from(userProjectSettings).where(
       and(eq(userProjectSettings.user_id, ctx.userId), inArray(userProjectSettings.project_id, projectIds))
@@ -206,6 +210,7 @@ export const projectsRouter = router({
         container_memory: us.container_memory ?? r.container_memory,
         container_cpus: us.container_cpus ?? r.container_cpus,
         container_pids_limit: us.container_pids_limit ?? r.container_pids_limit,
+        container_stack_size: us.container_stack_size ?? r.container_stack_size,
         container_timeout: us.container_timeout ?? r.container_timeout,
       };
     });
@@ -244,6 +249,7 @@ export const projectsRouter = router({
         container_memory: row?.container_memory ?? null,
         container_cpus: row?.container_cpus ?? null,
         container_pids_limit: row?.container_pids_limit ?? null,
+        container_stack_size: row?.container_stack_size ?? null,
         container_timeout: row?.container_timeout ?? null,
       };
     }),

@@ -72,11 +72,13 @@ export async function composePrompt(
   let preamble = "You are running in HEADLESS MODE as a sandboxed instance. You CANNOT ask questions to the user. Execute all steps autonomously.\n\n";
   preamble += "- **Worktree** (your working copy): `{WORKTREE}`\n";
   preamble += "- **Main repo** (read-only reference): `{MAIN_REPO}`\n";
+  preamble += "- **When starting servers**: start each server exactly once in the background (`cmd &`), never launch the same server more than once. Wait at most 8 seconds (`sleep 8`) then read the logs and diagnose — do not retry, do not sleep longer.\n";
+  preamble += "- **When polling server readiness**: always use `--max-time 30` on curl so it does not hang indefinitely during first-page compilation (e.g. `curl -s --max-time 30 -o /dev/null -w \"%{http_code}\" http://localhost:PORT`). Poll for up to 90 seconds total before giving up.\n";
   if (config.devServers.length > 0) {
     preamble += "\n**Dev servers** (use these exact commands — do not guess from package.json):\n";
     for (const s of config.devServers) {
       const envPrefix = s.env ? Object.entries(s.env).map(([k, v]) => `${k}='${v}'`).join(" ") + " " : "";
-      preamble += `- **${s.name}**: \`${envPrefix}${s.cmd}\` → port ${s.port}\n`;
+      preamble += `- **${s.name}**: \`curl -s --connect-timeout 2 --max-time 10 -o/dev/null http://localhost:${s.port} 2>/dev/null || (${envPrefix}${s.cmd} > /tmp/${s.name.replace(/\s+/g, "-").toLowerCase()}.log 2>&1 &)\` → port ${s.port}\n`;
     }
   }
   if (stepDef.containerMode === "readonly") {
