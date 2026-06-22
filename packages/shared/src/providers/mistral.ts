@@ -1,15 +1,6 @@
-import type { ProviderAdapter, CommandOpts, ParsedOutput, ContainerConfig, ProviderModel } from "./types";
+import type { ProviderAdapter, CommandOpts, ParsedOutput, ContainerConfig } from "./types";
 import type { ParsedLogEntry } from "../types";
-
-// ── Models ────────────────────────────────────────────────────────────────────
-
-const MISTRAL_MODELS: ProviderModel[] = [
-  { id: "devstral-2", name: "Devstral 2", isDefault: true },
-  { id: "mistral-large-latest", name: "Mistral Large 3", isDefault: false },
-  { id: "mistral-medium-latest", name: "Mistral Medium 3.1", isDefault: false },
-  { id: "devstral-small-latest", name: "Devstral Small", isDefault: false },
-  { id: "codestral-latest", name: "Codestral", isDefault: false },
-];
+import { MODELS_BY_PROVIDER } from "./models";
 
 // ── Tool name mapping ─────────────────────────────────────────────────────────
 // Maps Claude tool names → Mistral Vibe --enabled-tools names
@@ -202,7 +193,7 @@ export const mistralAdapter: ProviderAdapter = {
   id: "mistral",
   name: "Mistral Vibe",
   agentBinary: "vibe",
-  models: MISTRAL_MODELS,
+  models: MODELS_BY_PROVIDER.mistral,
 
   authEnvKeys: ["MISTRAL_API_KEY"],
   getAuthEnv: getMistralAuthEnv,

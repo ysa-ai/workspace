@@ -1,220 +1,23 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { join, dirname } from "path";
-import { homedir, userInfo } from "os";
-import type { ProviderAdapter, CommandOpts, ParsedOutput, ContainerConfig, ProviderModel } from "./types";
+import type { ProviderAdapter, CommandOpts, ParsedOutput, ContainerConfig } from "./types";
 import type { ParsedLogEntry } from "../types";
-
-// ── Models ────────────────────────────────────────────────────────────────────
-
-const CLAUDE_MODELS: ProviderModel[] = [
-  { id: "claude-sonnet-4-6", name: "Sonnet 4.6", isDefault: true },
-  { id: "claude-sonnet-4-5", name: "Sonnet 4.5", isDefault: false },
-  { id: "claude-opus-4-6", name: "Opus 4.6", isDefault: false },
-];
+import { MODELS_BY_PROVIDER } from "./models";
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-// OAuth flow for Claude Code — reads from macOS Keychain or ANTHROPIC_API_KEY env var.
-// These functions use Bun.spawn and are server-side only.
-
-const OAUTH_TOKEN_URL = "https://console.anthropic.com/v1/oauth/token";
-const TOKEN_REFRESH_MARGIN_MS = 10 * 60 * 1000;
-
-let cachedOAuthToken: string | null = null;
-let cachedTokenExpiresAt = 0;
-let cachedClientId: string | null = null;
-
-async function extractClientIdFromBinary(): Promise<string | null> {
-  if (cachedClientId) return cachedClientId;
-  try {
-    const which = Bun.spawn(["which", "claude"], { stdout: "pipe", stderr: "pipe" });
-    const whichOut = (await new Response(which.stdout).text()).trim();
-    if ((await which.exited) !== 0 || !whichOut) return null;
-
-    const readlink = Bun.spawn(["readlink", "-f", whichOut], { stdout: "pipe", stderr: "pipe" });
-    const binPath = (await new Response(readlink.stdout).text()).trim();
-    if ((await readlink.exited) !== 0 || !binPath) return null;
-
-    const extract = Bun.spawn(
-      ["bash", "-c", `grep -oaE 'CLIENT_ID:"[0-9a-f-]+"' "${binPath}" 2>/dev/null | head -1 | sed 's/CLIENT_ID:"//;s/"//'`],
-      { stdout: "pipe", stderr: "pipe" },
-    );
-    const clientId = (await new Response(extract.stdout).text()).trim();
-    if ((await extract.exited) !== 0 || !clientId) return null;
-
-    cachedClientId = clientId;
-    return clientId;
-  } catch {
-    return null;
-  }
-}
-
-async function readCredentials(): Promise<Record<string, any>> {
-  if (process.platform === "darwin") {
-    // Newer Claude versions store credentials under the OS username; older ones use "".
-    // Always prefer the username-specific entry — it's what the current Claude CLI writes to.
-    // Do NOT pick by expiresAt: a stale unnamed entry could have a farther expiry than a
-    // freshly-issued token, causing the agent to pass a revoked token to containers.
-    const account = userInfo().username;
-    const cmds = [
-      ["security", "find-generic-password", "-s", "Claude Code-credentials", "-a", account, "-w"],
-      ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
-    ];
-
-    for (const cmd of cmds) {
-      const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
-      const stdout = await new Response(proc.stdout).text();
-      if ((await proc.exited) !== 0 || !stdout.trim()) continue;
-      try {
-        const parsed = JSON.parse(stdout.trim());
-        if (parsed?.claudeAiOauth?.accessToken) return parsed;
-      } catch { continue; }
-    }
-
-    throw new Error(
-      "Failed to read Claude OAuth token from macOS Keychain. Run 'claude /login' first.",
-    );
-  } else {
-    const credPath = join(homedir(), ".claude", ".credentials.json");
-    try {
-      const raw = await readFile(credPath, "utf-8");
-      return JSON.parse(raw);
-    } catch {
-      throw new Error(
-        "No credentials found. Run 'claude /login' to authenticate.",
-      );
-    }
-  }
-}
-
-async function writeCredentials(creds: Record<string, any>): Promise<void> {
-  if (process.platform === "darwin") {
-    const json = JSON.stringify(creds);
-    const proc = Bun.spawn(
-      ["security", "add-generic-password", "-U", "-s", "Claude Code-credentials", "-a", userInfo().username, "-w", json],
-      { stdout: "pipe", stderr: "pipe" },
-    );
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      const stderr = await new Response(proc.stderr).text();
-      console.error("[oauth] Failed to update Keychain:", stderr);
-    }
-  } else {
-    const credPath = join(homedir(), ".claude", ".credentials.json");
-    await mkdir(dirname(credPath), { recursive: true });
-    await writeFile(credPath, JSON.stringify(creds), { mode: 0o600 });
-  }
-}
-
-async function refreshOAuthToken(refreshToken: string, clientId: string): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}> {
-  const res = await fetch(OAUTH_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: clientId,
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    let parsed: any;
-    try { parsed = JSON.parse(body); } catch { parsed = null; }
-    if (parsed?.error === "invalid_grant") {
-      throw new Error("invalid_grant");
-    }
-    throw new Error(`OAuth refresh failed (${res.status}): ${body}`);
-  }
-
-  const data = await res.json() as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-  };
-
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresIn: data.expires_in,
-  };
-}
-
-async function getOAuthToken(): Promise<string> {
-  if (cachedOAuthToken && Date.now() < cachedTokenExpiresAt - TOKEN_REFRESH_MARGIN_MS) {
-    return cachedOAuthToken;
-  }
-
-  const creds = await readCredentials();
-  const oauth = creds.claudeAiOauth;
-  if (!oauth?.accessToken) {
-    throw new Error("No accessToken in Keychain credentials. Run 'claude /login' first.");
-  }
-
-  const expiresAt = oauth.expiresAt || 0;
-  const needsRefresh = Date.now() >= expiresAt - TOKEN_REFRESH_MARGIN_MS;
-
-  if (needsRefresh) {
-    if (!oauth.refreshToken) {
-      throw new Error("OAuth token expired and no refresh token available. Run 'claude /login'.");
-    }
-
-    const clientId = await extractClientIdFromBinary() ?? process.env.CLAUDE_CODE_OAUTH_CLIENT_ID;
-    if (!clientId) {
-      throw new Error("OAuth token expired and could not be refreshed. Run 'claude /login' to re-authenticate, or set the CLAUDE_CODE_OAUTH_CLIENT_ID env var.");
-    }
-    console.log("[oauth] Access token expired or expiring soon, refreshing...");
-    let refreshed: Awaited<ReturnType<typeof refreshOAuthToken>>;
-    try {
-      refreshed = await refreshOAuthToken(oauth.refreshToken, clientId);
-    } catch (err: any) {
-      if (err.message === "invalid_grant") {
-        const freshCreds = await readCredentials();
-        const freshOAuth = freshCreds.claudeAiOauth;
-        if (freshOAuth?.refreshToken && freshOAuth.refreshToken !== oauth.refreshToken) {
-          console.log("[oauth] Refresh token rotated by Claude CLI, retrying with fresh token...");
-          refreshed = await refreshOAuthToken(freshOAuth.refreshToken, clientId);
-          Object.assign(creds, freshCreds);
-          Object.assign(oauth, freshOAuth);
-        } else {
-          cachedOAuthToken = null;
-          cachedTokenExpiresAt = 0;
-          throw new Error("Claude session expired. Run 'claude /login' to re-authenticate.");
-        }
-      } else {
-        throw err;
-      }
-    }
-
-    creds.claudeAiOauth = {
-      ...oauth,
-      accessToken: refreshed.accessToken,
-      refreshToken: refreshed.refreshToken,
-      expiresAt: Date.now() + refreshed.expiresIn * 1000,
-    };
-    await writeCredentials(creds);
-
-    cachedOAuthToken = refreshed.accessToken;
-    cachedTokenExpiresAt = Date.now() + refreshed.expiresIn * 1000;
-    console.log(`[oauth] Token refreshed, expires in ${(refreshed.expiresIn / 3600).toFixed(1)}h`);
-  } else {
-    cachedOAuthToken = oauth.accessToken;
-    cachedTokenExpiresAt = expiresAt;
-  }
-
-  return cachedOAuthToken!;
-}
+// Claude OAuth/Keychain token resolution lives in the @ysa-ai/ysa runtime (the
+// process that launches containers) — there is exactly ONE copy of the Keychain
+// logic there, so it can't drift across duplicates (the bug that previously broke
+// OAuth refresh). This shared adapter is used only for models, command building,
+// and log parsing; its getAuthEnv supports ANTHROPIC_API_KEY and otherwise defers
+// to the runtime.
 
 async function getClaudeAuthEnv(): Promise<Record<string, string>> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (apiKey) {
     return { ANTHROPIC_API_KEY: apiKey };
   }
-  const oauthToken = await getOAuthToken();
-  return { CLAUDE_CODE_OAUTH_TOKEN: oauthToken };
+  throw new Error(
+    "Claude OAuth token resolution is handled by the @ysa-ai/ysa runtime, not the shared adapter. Set ANTHROPIC_API_KEY, or launch via the runtime.",
+  );
 }
 
 // ── Log parsing ───────────────────────────────────────────────────────────────
@@ -430,7 +233,7 @@ export const claudeAdapter: ProviderAdapter = {
   id: "claude",
   name: "Claude Code",
   agentBinary: "claude",
-  models: CLAUDE_MODELS,
+  models: MODELS_BY_PROVIDER.claude,
 
   authEnvKeys: ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"],
   getAuthEnv: getClaudeAuthEnv,

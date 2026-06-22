@@ -74,10 +74,12 @@ export async function composePrompt(
   preamble += "- **Main repo** (read-only reference): `{MAIN_REPO}`\n";
   preamble += "- **When starting servers**: start each server exactly once in the background (`cmd &`), never launch the same server more than once. Wait at most 8 seconds (`sleep 8`) then read the logs and diagnose — do not retry, do not sleep longer.\n";
   preamble += "- **When polling server readiness**: always use `--max-time 30` on curl so it does not hang indefinitely during first-page compilation (e.g. `curl -s --max-time 30 -o /dev/null -w \"%{http_code}\" http://localhost:PORT`). Poll for up to 90 seconds total before giving up.\n";
-  if (config.devServers.length > 0) {
+  preamble += "- **Container init/build**: project install/build runs in the background. It is finished when `/tmp/ysa-init.done` exists — its contents are the exit code (`0` = ready; non-zero = build failed, see `/tmp/ysa-init.log`). If a server you start depends on the build (e.g. it runs a compiled output), wait for that file first: `while [ ! -f /tmp/ysa-init.done ]; do sleep 2; done`.\n";
+  const containerServers = config.startServers?.length ? config.startServers : config.devServers;
+  if (containerServers.length > 0) {
     preamble += "\n**Dev servers** (use these exact commands — do not guess from package.json):\n";
-    for (const s of config.devServers) {
-      const envPrefix = s.env ? Object.entries(s.env).map(([k, v]) => `${k}='${v}'`).join(" ") + " " : "";
+    for (const s of containerServers) {
+      const envPrefix = s.env && Object.keys(s.env).length ? `export ${Object.entries(s.env).map(([k, v]) => `${k}='${v}'`).join(" ")} && ` : "";
       preamble += `- **${s.name}**: \`curl -s --connect-timeout 2 --max-time 10 -o/dev/null http://localhost:${s.port} 2>/dev/null || (${envPrefix}${s.cmd} > /tmp/${s.name.replace(/\s+/g, "-").toLowerCase()}.log 2>&1 &)\` → port ${s.port}\n`;
     }
   }

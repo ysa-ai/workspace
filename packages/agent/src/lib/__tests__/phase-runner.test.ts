@@ -36,6 +36,7 @@ const mockConfig: AgentConfig = {
   envFiles: [".env"],
   worktreeFiles: [],
   devServers: [],
+  startServers: [],
   mcpConfig: null,
   dashboardPort: 3333,
   issuesDir: "/tmp/workflow-agent-issues",

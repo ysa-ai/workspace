@@ -142,6 +142,7 @@ export interface AgentConfig {
   config: {
     projectRoot: string;
     devServers: Array<{ name: string; cmd: string; port: number }>;
+    startServers: Array<{ name: string; cmd: string; port: number }>;
   };
 }
 

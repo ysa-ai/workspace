@@ -240,8 +240,14 @@ export async function runPhase(
   }
 
   if (continueMode) {
-    const continuePrompt = phaseConfig.refinePrompt
-      ?? "Continue from where you left off. Complete the remaining tasks for this phase. If you are unsure about submission steps or objectives, re-read `/workspace/.ysa-prompt.md`.";
+    const resultReminder =
+      "\n\n---\n\n**Required before finishing (do not skip):** finish this phase correctly — " +
+      "submit the base-step result AND every module result for this phase. The exact submission " +
+      "commands/endpoints are in `/workspace/.ysa-prompt.md` — re-read it. Only skip a submission " +
+      "if the instruction above explicitly says to.";
+    const continuePrompt = (phaseConfig.refinePrompt
+      ?? "Continue from where you left off. Complete the remaining tasks for this phase.")
+      + resultReminder;
     await requestFromDashboard<unknown>({ type: "agent_request", command: "store_prompt", payload: { taskId, step: phase, content: continuePrompt } });
   }
 

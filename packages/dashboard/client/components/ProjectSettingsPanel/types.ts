@@ -20,6 +20,7 @@ export interface SharedFormValues {
   build_cmd: string;
   pre_dev_cmd: string;
   dev_servers: DevServerEntry[];
+  start_servers: DevServerEntry[];
   test_cmd: string;
   deps_cache_files: string;
   packages: string;
@@ -59,6 +60,7 @@ export interface Project {
   build_cmd: string | null;
   pre_dev_cmd: string | null;
   dev_servers: string | null;
+  start_servers: string | null;
   test_cmd: string | null;
   deps_cache_files: string | null;
   packages: string | null;
@@ -83,7 +85,7 @@ export const PERSONAL_SECTION_IDS = new Set(["paths", "ai_settings", "container"
 export const SECTION_FIELDS: Record<string, string[]> = {
   general: ["name", "branch_prefix", "default_branch"],
   integration: ["issue_source", "issue_url_template", "code_repo_url"],
-  build: ["install_cmd", "build_cmd", "pre_dev_cmd", "test_cmd", "languages", "dev_servers", "deps_cache_files", "packages"],
+  build: ["install_cmd", "build_cmd", "pre_dev_cmd", "test_cmd", "languages", "dev_servers", "start_servers", "deps_cache_files", "packages"],
   security: ["network_policy", "bypass_hosts"],
   advanced: ["worktree_files", "container_init_commands"],
   paths: ["project_root", "worktree_prefix", "npmrc_path", "env_vars", "mcp_config"],
@@ -109,24 +111,7 @@ export const PERSONAL_SECTIONS = [
   { id: "container", label: "Container" },
 ];
 
-export const MODELS_BY_PROVIDER: Record<string, { id: string; name: string }[]> = {
-  claude: [
-    { id: "claude-sonnet-4-6", name: "Sonnet 4.6" },
-    { id: "claude-sonnet-4-5", name: "Sonnet 4.5" },
-    { id: "claude-opus-4-6", name: "Opus 4.6" },
-  ],
-  mistral: [
-    { id: "devstral-2", name: "Devstral 2" },
-    { id: "mistral-large-latest", name: "Mistral Large 3" },
-    { id: "mistral-medium-latest", name: "Mistral Medium 3.1" },
-    { id: "devstral-small-latest", name: "Devstral Small" },
-    { id: "codestral-latest", name: "Codestral" },
-  ],
-  deepseek: [
-    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
-    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
-  ],
-};
+export { MODELS_BY_PROVIDER } from "@ysa-ai/shared/models";
 
 export const PROVIDER_LABELS: Record<string, string> = {
   claude: "Claude Code",
@@ -223,6 +208,7 @@ export const defaultSharedValues: SharedFormValues = {
   build_cmd: "",
   pre_dev_cmd: "",
   dev_servers: [],
+  start_servers: [],
   test_cmd: "",
   deps_cache_files: "",
   packages: "",

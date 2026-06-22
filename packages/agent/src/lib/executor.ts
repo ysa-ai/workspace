@@ -358,10 +358,8 @@ export async function launchDevServers(
 
   const servers = config.devServers;
   const envStr = (env?: Record<string, string>) =>
-    env
-      ? Object.entries(env)
-          .map(([k, v]) => `${k}='${v}'`)
-          .join(" ") + " "
+    env && Object.keys(env).length
+      ? `export ${Object.entries(env).map(([k, v]) => `${k}='${v}'`).join(" ")} && `
       : "";
   const shellCmd = (s: (typeof servers)[0]) =>
     `cd ${worktree} && ${envStr(s.env)}${s.cmd}`;

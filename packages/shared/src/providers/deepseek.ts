@@ -1,12 +1,8 @@
 import { claudeAdapter } from "./claude";
-import type { ProviderAdapter, ProviderModel, ContainerConfig } from "./types";
+import type { ProviderAdapter, ContainerConfig } from "./types";
+import { MODELS_BY_PROVIDER } from "./models";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com/anthropic";
-
-const DEEPSEEK_MODELS: ProviderModel[] = [
-  { id: "deepseek-v4-pro",   name: "DeepSeek V4 Pro",   isDefault: true },
-  { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash",  isDefault: false },
-];
 
 async function getDeepSeekAuthEnv(): Promise<Record<string, string>> {
   const apiKey = process.env.ANTHROPIC_AUTH_TOKEN;
@@ -28,7 +24,7 @@ export const deepseekAdapter: ProviderAdapter = {
   ...claudeAdapter,
   id: "deepseek",
   name: "DeepSeek",
-  models: DEEPSEEK_MODELS,
+  models: MODELS_BY_PROVIDER.deepseek,
   authEnvKeys: ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"],
   getAuthEnv: getDeepSeekAuthEnv,
   bypassHosts: ["api.deepseek.com"],

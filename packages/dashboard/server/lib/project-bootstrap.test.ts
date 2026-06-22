@@ -18,6 +18,7 @@ const orgBase = {
   buildCmd: "",
   preDevCmd: undefined as string | undefined,
   devServers: [],
+  startServers: [],
   qaEnabled: false,
   testCmd: "",
   llmProvider: "claude",

@@ -17,6 +17,7 @@ export interface AgentConfig {
   npmrcPath?: string;
   worktreeFiles: string[];
   devServers: DevServer[];
+  startServers: DevServer[];
   mcpConfig: string | null;
   dashboardPort: number;
   issuesDir: string;

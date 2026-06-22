@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { MODELS_BY_PROVIDER } from "@ysa-ai/shared/models";
 import { trpc } from "../trpc";
 import { useToast } from "./Toast";
 import { track } from "../lib/analytics";
@@ -7,21 +8,6 @@ const PROVIDERS = [
   { id: "claude", name: "Claude Code" },
   { id: "mistral", name: "Mistral" },
 ] as const;
-
-const MODELS_BY_PROVIDER: Record<string, { id: string; name: string }[]> = {
-  claude: [
-    { id: "claude-sonnet-4-6", name: "Sonnet 4.6" },
-    { id: "claude-sonnet-4-5", name: "Sonnet 4.5" },
-    { id: "claude-opus-4-6", name: "Opus 4.6" },
-  ],
-  mistral: [
-    { id: "devstral-2", name: "Devstral 2" },
-    { id: "mistral-large-latest", name: "Mistral Large 3" },
-    { id: "mistral-medium-latest", name: "Mistral Medium 3.1" },
-    { id: "devstral-small-latest", name: "Devstral Small" },
-    { id: "codestral-latest", name: "Codestral" },
-  ],
-};
 
 interface ProjectDefaults {
   llm_provider: string;

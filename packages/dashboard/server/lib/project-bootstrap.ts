@@ -46,6 +46,7 @@ export type ProjectConfig = {
   buildCmd: string;
   preDevCmd: string | undefined;
   devServers: any[];
+  startServers: any[];
   qaEnabled: boolean;
   testCmd: string;
   llmProvider: string;
@@ -113,6 +114,7 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     buildCmd: "",
     preDevCmd: undefined,
     devServers: [],
+    startServers: [],
     qaEnabled: false,
     testCmd: "",
     llmProvider: "claude",
@@ -178,6 +180,7 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     buildCmd: row.build_cmd || "",
     preDevCmd: row.pre_dev_cmd || undefined,
     devServers: row.dev_servers ? JSON.parse(row.dev_servers) : [],
+    startServers: row.start_servers ? JSON.parse(row.start_servers) : [],
     qaEnabled: row.qa_enabled === true,
     testCmd: row.test_cmd || "",
     llmProvider,

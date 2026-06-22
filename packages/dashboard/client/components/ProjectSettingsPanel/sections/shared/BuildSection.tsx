@@ -36,8 +36,6 @@ export function BuildSection({ projectId, showBuild, onBuildDone }: { projectId?
     }
   }, [buildState?.status]);
   const languages = watch("languages");
-  const { fields: devServerFields, append: appendDevServer, remove: removeDevServer } =
-    useFieldArray<SharedFormValues, "dev_servers">({ name: "dev_servers" });
 
   const toggleLanguage = (id: string) => {
     const next = languages.includes(id) ? languages.filter((l) => l !== id) : [...languages, id];
@@ -142,65 +140,90 @@ export function BuildSection({ projectId, showBuild, onBuildDone }: { projectId?
           <BuildProgress step={buildState.step ?? ""} progress={buildState.progress ?? 0} status={buildState.status} />
         </div>
       )}
-      <div>
-        <label className="block text-[13px] font-semibold mb-2">Dev servers</label>
-        <div className="space-y-2">
-          {devServerFields.map((field, idx) => (
-            <div key={field.id} className="border border-border rounded-lg p-3 space-y-2 bg-bg-inset">
-              <div className="flex gap-2 items-center">
-                <input
-                  {...register(`dev_servers.${idx}.name`)}
-                  className={`${INPUT_BASE} flex-1 min-w-0`}
-                  placeholder="Name (e.g. API)"
-                />
-                <input
-                  type="number"
-                  {...register(`dev_servers.${idx}.port`)}
-                  className={`${INPUT_BASE} w-24 shrink-0 font-mono`}
-                  placeholder="3000"
-                  min={1}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeDevServer(idx)}
-                  className="shrink-0 p-1.5 rounded-md text-text-faint hover:text-err hover:bg-err-bg transition-colors cursor-pointer"
-                  title="Remove"
-                >
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <input
-                {...register(`dev_servers.${idx}.cmd`)}
-                className={INPUT_MONO_CLS}
-                placeholder="Command (e.g. bun dev)"
-              />
-              <DevServerEnvField idx={idx} />
-            </div>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => appendDevServer({ name: "", cmd: "", port: "3000", env: "" })}
-          className="mt-2 flex items-center gap-1.5 text-[12px] text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-        >
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M12 5v14m-7-7h14" />
-          </svg>
-          Add server
-        </button>
-      </div>
+      <ServerListField
+        name="dev_servers"
+        label="Dev servers"
+        cmdPlaceholder="Dev command — host (e.g. cd apps/web && bun run dev)"
+      />
+      <ServerListField
+        name="start_servers"
+        label="Start commands"
+        cmdPlaceholder="Start command — container (e.g. cd apps/web && bun run start)"
+      />
     </div>
   );
 }
 
-function DevServerEnvField({ idx }: { idx: number }) {
+function ServerListField({
+  name,
+  label,
+  cmdPlaceholder,
+}: {
+  name: "dev_servers" | "start_servers";
+  label: string;
+  cmdPlaceholder: string;
+}) {
+  const { register } = useFormContext<SharedFormValues>();
+  const { fields, append, remove } = useFieldArray<SharedFormValues, "dev_servers" | "start_servers">({ name });
+  return (
+    <div>
+      <label className="block text-[13px] font-semibold mb-2">{label}</label>
+      <div className="space-y-2">
+        {fields.map((field, idx) => (
+          <div key={field.id} className="border border-border rounded-lg p-3 space-y-2 bg-bg-inset">
+            <div className="flex gap-2 items-center">
+              <input
+                {...register(`${name}.${idx}.name`)}
+                className={`${INPUT_BASE} flex-1 min-w-0`}
+                placeholder="Name (e.g. API)"
+              />
+              <input
+                type="number"
+                {...register(`${name}.${idx}.port`)}
+                className={`${INPUT_BASE} w-24 shrink-0 font-mono`}
+                placeholder="3000"
+                min={1}
+              />
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                className="shrink-0 p-1.5 rounded-md text-text-faint hover:text-err hover:bg-err-bg transition-colors cursor-pointer"
+                title="Remove"
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <input
+              {...register(`${name}.${idx}.cmd`)}
+              className={INPUT_MONO_CLS}
+              placeholder={cmdPlaceholder}
+            />
+            <ServerEnvField name={name} idx={idx} />
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => append({ name: "", cmd: "", port: "3000", env: "" })}
+        className="mt-2 flex items-center gap-1.5 text-[12px] text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+      >
+        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M12 5v14m-7-7h14" />
+        </svg>
+        Add server
+      </button>
+    </div>
+  );
+}
+
+function ServerEnvField({ name, idx }: { name: "dev_servers" | "start_servers"; idx: number }) {
   const { register, watch } = useFormContext<SharedFormValues>();
-  const env = watch(`dev_servers.${idx}.env`);
+  const env = watch(`${name}.${idx}.env`);
   return (
     <textarea
-      {...register(`dev_servers.${idx}.env`)}
+      {...register(`${name}.${idx}.env`)}
       className={`w-full bg-bg-inset border border-border rounded-lg px-3 py-2 text-[13px] text-text-primary outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-all font-mono resize-none text-[11px]`}
       placeholder={"Env vars (optional)\nKEY=value"}
       rows={env ? env.split("\n").length + 1 : 2}

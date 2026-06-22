@@ -116,6 +116,7 @@ export const projects = pgTable("projects", {
   build_cmd: text("build_cmd"),
   pre_dev_cmd: text("pre_dev_cmd"),
   dev_servers: text("dev_servers"),
+  start_servers: text("start_servers"),
   qa_enabled: boolean("qa_enabled").notNull().default(false),
   test_cmd: text("test_cmd"),
   issue_source_token: text("issue_source_token"),

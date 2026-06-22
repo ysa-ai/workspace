@@ -238,6 +238,7 @@ function configFromPayload(payload: Record<string, unknown>): AgentConfig {
     projectId: (src.projectId as string) || projectId || undefined,
     languages: (src.languages as string[]) || [],
     devServers: (src.devServers as any[]) || [],
+    startServers: (src.startServers as any[]) || [],
     mcpConfig: (src.mcpConfig as string) ?? null,
     dashboardPort,
     issuesDir: join(projectRoot || process.env.HOME || "~", ".ysa", "issues"),
