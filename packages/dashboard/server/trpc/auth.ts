@@ -11,6 +11,7 @@ import {
 import { sendEmail } from "../lib/email";
 import { eq, and, inArray, isNull, gt } from "drizzle-orm";
 import { createSessionTokens } from "../lib/auth-helpers";
+import { removeTaskUploads } from "../lib/uploads";
 import { randomBytes } from "crypto";
 import { config } from "../config";
 import { encrypt, decrypt } from "../lib/crypto";
@@ -123,6 +124,7 @@ export const authRouter = router({
           await db.delete(stepModuleData).where(inArray(stepModuleData.task_id, taskIds));
           await db.delete(stepPrompts).where(inArray(stepPrompts.task_id, taskIds));
           await db.delete(tasks).where(inArray(tasks.task_id, taskIds));
+          await Promise.all(taskIds.map(removeTaskUploads));
         }
 
         for (const pid of projectIds) {
@@ -349,6 +351,7 @@ export const authRouter = router({
           await db.delete(stepModuleData).where(inArray(stepModuleData.task_id, taskIds));
           await db.delete(stepPrompts).where(inArray(stepPrompts.task_id, taskIds));
           await db.delete(tasks).where(inArray(tasks.task_id, taskIds));
+          await Promise.all(taskIds.map(removeTaskUploads));
         }
 
         for (const pid of projectIds) {

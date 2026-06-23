@@ -30,5 +30,8 @@ metrics.jsonl
 # Runtime data (issues, logs, DB)
 .ysa/
 
+# Stored task artifacts (frontend_debug screenshots)
+data/uploads/
+
 # Test fixture temp files
 packages/dashboard/server/trpc/_mcp_test_fixture.json

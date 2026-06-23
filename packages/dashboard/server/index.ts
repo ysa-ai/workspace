@@ -16,6 +16,7 @@ import { rateLimit } from "./lib/rate-limit.js";
 import { telemetry } from "./lib/telemetry";
 import { registerAuthRoutes } from "./routes/auth";
 import { registerContainerApiRoutes } from "./routes/container-api";
+import { removeTaskUploads } from "./lib/uploads";
 
 await runMigrations();
 await migrateEncryptKeys();
@@ -28,6 +29,7 @@ if (orphanIds.length > 0) {
   const ids = orphanIds.map(r => r.id);
   await db.delete(stepPrompts).where(inArray(stepPrompts.task_id, ids));
   await db.delete(tasks).where(inArray(tasks.task_id, ids));
+  await Promise.all(ids.map(removeTaskUploads));
 }
 
 export const app = new Hono();

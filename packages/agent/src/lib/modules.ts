@@ -40,22 +40,53 @@ mkdir -p /tmp/.playwright
 cat > /tmp/.playwright/capture.ts << 'EOF'
 import { chromium } from "playwright-core";
 const url = process.argv[2];
-if (!url) { console.error("Usage: bun capture.ts <url>"); process.exit(1); }
+const scope = process.argv[3] || "--viewport"; // --viewport | --full | <css-selector>
+if (!url) { console.error("Usage: bun capture.ts <url> [--viewport|--full|<selector>]"); process.exit(1); }
 const browser = await chromium.launch({
   executablePath: "/usr/bin/chromium",
   headless: true,
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
-const page = await browser.newPage();
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const consoleErrors: string[] = [];
 page.on("console", msg => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
 await page.goto(url, { waitUntil: "load", timeout: 30000 });
-const screenshotPath = \`/tmp/.playwright/\${Date.now()}.png\`;
-await page.screenshot({ path: screenshotPath, fullPage: true });
+await page.waitForTimeout(1000);
+
+let png: Buffer;
+if (scope === "--full") png = await page.screenshot({ fullPage: true });
+else if (scope === "--viewport") png = await page.screenshot();
+else png = await page.locator(scope).screenshot();
+
+const localPath = \`/tmp/.playwright/\${Date.now()}.png\`;
+await Bun.write(localPath, png);
+
+// Re-encode to WebP q80 via Chromium's canvas (no extra native deps), ~40% smaller than JPEG.
+const enc = await browser.newPage();
+const webpDataUrl: string = await enc.evaluate(async (b64) => {
+  const img = new Image();
+  img.src = "data:image/png;base64," + b64;
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext("2d")!.drawImage(img, 0, 0);
+  return c.toDataURL("image/webp", 0.8);
+}, png.toString("base64"));
+await enc.close();
+const webp = Buffer.from(webpDataUrl.split(",")[1], "base64");
+
+// Upload to the dashboard, keyed by task — returns a stored URL to put in your result.
+const res = await fetch("{DASHBOARD_URL}/api/tasks/{ISSUE_ID}/uploads", {
+  method: "POST",
+  headers: { "Content-Type": "image/webp", "Authorization": "Bearer " + process.env.YSA_SUBMIT_TOKEN },
+  body: webp,
+});
+const uploadedUrl = res.ok ? (await res.json()).url : null;
+
 const title = await page.title();
 const outline = await page.$$eval("h1,h2,h3,button,a,[role]", els =>
   els.slice(0, 50).map(e => \`\${e.tagName.toLowerCase()}: \${(e.textContent || "").trim().slice(0, 60)}\`));
-console.log(JSON.stringify({ screenshotPath, title, consoleErrors, outline }, null, 2));
+console.log(JSON.stringify({ uploadedUrl, localPath, scope, title, consoleErrors, outline }, null, 2));
 await browser.close();
 EOF
 \`\`\`
@@ -65,12 +96,13 @@ EOF
 1. Start **all** configured dev servers listed in the preamble in the background, each logging to a file (e.g. \`cmd > /tmp/server-name.log 2>&1 &\`). The app typically needs API + frontend servers running together.
 2. Wait 5 seconds, then read each server's log file to check for startup crashes. If a server crashed, set status to \`"failed"\` with the crash output in \`summary\` and stop immediately.
 3. Poll each server's port every 2 seconds for up to 60 seconds: \`curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>\`. Stop as soon as you get 200/301/302. If not ready after 60 seconds, read its log again and set status to \`"failed"\` with the error — stop immediately.
-4. Run \`bun /tmp/.playwright/capture.ts <url>\` — captures a screenshot and a DOM outline (headings, buttons, links, ARIA roles).
-5. Read the PNG file at the path printed in the output using your Read tool to visually inspect the UI.
+4. Run \`bun /tmp/.playwright/capture.ts <url> <scope>\`. Choose the **minimal scope** that proves your change, to keep stored screenshots small: a CSS selector (e.g. \`'.notice-form'\`) when one element is the proof, \`--viewport\` (default) when the visible fold tells the story, \`--full\` only when the whole page matters. The script captures, re-encodes to WebP, uploads to the dashboard, and prints \`uploadedUrl\` plus a local \`localPath\` and a DOM outline.
+5. Read the PNG at \`localPath\` from the output using your Read tool to visually inspect the UI.
 6. Check \`consoleErrors\` in the JSON output for JS errors.
-7. Navigate to other pages or states as needed by running the script again with different URLs.
+7. Navigate to other pages or states as needed by running the script again with a different URL and scope.
 8. Fix any visual or functional issues found, re-run to confirm. Read each PNG you take.
-9. Stop the dev server when done.`,
+9. Put every \`uploadedUrl\` you captured into the \`screenshots\` array of your result.
+10. Stop the dev servers when done.`,
 
   change_report: `After implementing your changes, commit them locally — do NOT push or create a pull request or merge request.
 1. **Stage files** — use \`git add <specific files>\` only. Never \`git add .\` or \`git add -A\`.
@@ -118,7 +150,7 @@ export const MODULE_RESULT_SCHEMAS: Record<string, Record<string, string>> = {
   frontend_debug: {
     status: '"passed" | "failed" | "skipped"',
     summary: "string — what was verified and any issues found",
-    screenshots: "string[] — base64-encoded PNG screenshots as proof",
+    screenshots: "string[] — uploadedUrl values printed by capture.ts (stored screenshot URLs), as proof",
     console_errors: "string — JS console errors detected, empty string if none",
   },
 };

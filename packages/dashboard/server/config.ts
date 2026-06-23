@@ -56,9 +56,14 @@ if (!authSecret) {
   console.log("[auth] Generated AUTH_SECRET and saved to .env");
 }
 
+const uploadsDir = process.env.UPLOADS_DIR
+  ? resolve(process.env.UPLOADS_DIR)
+  : join(monorepoRoot, "data", "uploads");
+
 export const config = {
   databaseUrl: process.env.DATABASE_URL || "postgresql://localhost:5432/ysa",
   port: parseInt(process.env.DASHBOARD_PORT || "3333"),
+  uploadsDir,
   origin: process.env.ORIGIN || "",
   appHostname: process.env.APP_HOSTNAME || "localhost:3333",
   masterKey,

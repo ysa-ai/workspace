@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { tasks, stepPrompts, taskWorkflowStates, workflowSteps, stepResults, stepModuleData } from "../db/schema";
 import { eq, and, inArray } from "drizzle-orm";
+import { removeTaskUploads } from "./uploads";
 
 // ─── Tasks ──────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ export async function deleteTask(taskId: string) {
   await db.delete(stepModuleData).where(eq(stepModuleData.task_id, id));
   await db.delete(taskWorkflowStates).where(eq(taskWorkflowStates.task_id, id));
   await db.delete(tasks).where(eq(tasks.task_id, id));
+  await removeTaskUploads(id);
 }
 
 // ─── Workflow State ───────────────────────────────────────────────────────

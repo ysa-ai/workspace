@@ -6,6 +6,7 @@ import { verifyAccessToken } from "../lib/auth";
 import { sha256 } from "../lib/auth-helpers";
 import { readStatus, readStepPrompt, getTaskWorkflowState } from "../lib/status";
 import { getProjectConfig } from "../lib/project-bootstrap";
+import { saveTaskUpload, resolveUploadPath } from "../lib/uploads";
 import { sendCommand, isAgentConnectedForUser } from "../ws/dispatch";
 
 async function getUserIdForTask(taskId: string): Promise<number | undefined> {
@@ -32,6 +33,26 @@ export async function validateSubmitToken(c: any, issueId: number): Promise<bool
 }
 
 export function registerContainerApiRoutes(app: Hono): void {
+  app.post("/api/tasks/:id/uploads", async (c) => {
+    const id = c.req.param("id");
+    if (!await validateSubmitToken(c, parseInt(id))) return c.json({ error: "Unauthorized" }, 401);
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    if (bytes.byteLength === 0) return c.json({ error: "Empty body" }, 400);
+    if (bytes.byteLength > 10 * 1024 * 1024) return c.json({ error: "Payload too large" }, 413);
+    const ct = c.req.header("content-type") || "";
+    const ext = ct.includes("png") ? "png" : ct.includes("jpeg") || ct.includes("jpg") ? "jpg" : "webp";
+    const url = await saveTaskUpload(parseInt(id), bytes, ext);
+    return c.json({ url });
+  });
+
+  app.get("/uploads/*", async (c) => {
+    const full = resolveUploadPath(c.req.path.slice("/uploads/".length));
+    if (!full) return c.json({ error: "Not found" }, 404);
+    const file = Bun.file(full);
+    if (!await file.exists()) return c.json({ error: "Not found" }, 404);
+    return new Response(file);
+  });
+
   app.post("/api/tasks/:id/result", async (c) => {
     const id = c.req.param("id");
     if (!await validateSubmitToken(c, parseInt(id))) return c.json({ error: "Unauthorized" }, 401);

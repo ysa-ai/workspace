@@ -71,13 +71,14 @@ export function FrontendDebugSection({ issueId, stepSlug, status }: FrontendDebu
 
         {screenshots && screenshots.length > 0 && (
           <div className="p-4 flex flex-col gap-3 bg-bg-raised">
-            {screenshots.map((b64, i) => (
-              <img
-                key={i}
-                src={`data:image/png;base64,${b64}`}
-                alt={`Screenshot ${i + 1}`}
-                className="rounded border border-border-bright max-w-full"
-              />
+            {screenshots.map((src, i) => (
+              <a key={i} href={src} target="_blank" rel="noreferrer">
+                <img
+                  src={src}
+                  alt={`Screenshot ${i + 1}`}
+                  className="rounded border border-border-bright max-w-full"
+                />
+              </a>
             ))}
           </div>
         )}
