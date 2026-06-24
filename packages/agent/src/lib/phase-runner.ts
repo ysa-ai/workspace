@@ -53,6 +53,7 @@ export interface StepDefinition {
   prevStepResult: string | null;
   provider?: string | null;
   model?: string | null;
+  credentialName?: string | null;
 }
 
 // ─── Step fetching ────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ async function fetchStepDefinition(taskId: string, stepSlug: string): Promise<St
     prevStepResult,
     provider: step.provider ?? null,
     model: step.model ?? null,
+    credentialName: step.credentialName ?? null,
   };
 }
 
@@ -291,10 +293,11 @@ export async function runPhase(
   };
 
   const stepProvider = stepDef.provider ?? config.llmProvider ?? "claude";
+  const credentialName = stepDef.credentialName ?? config.defaultCredentialName;
 
-  if (config.defaultCredentialName) {
+  if (credentialName) {
     const { getCredentialKey } = await import("./keystore.js");
-    const key = await getCredentialKey(config.defaultCredentialName);
+    const key = await getCredentialKey(credentialName);
     if (key) {
       if (stepProvider === "deepseek") {
         extraEnv.ANTHROPIC_AUTH_TOKEN = key;

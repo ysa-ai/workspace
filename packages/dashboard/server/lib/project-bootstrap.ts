@@ -28,6 +28,23 @@ export interface AiConfigEntry {
   is_default: boolean;
 }
 
+export async function getAiConfigs(userId: number, projectId: string): Promise<AiConfigEntry[]> {
+  const credPref = (await db.select().from(userProjectCredentialPreferences)
+    .where(and(eq(userProjectCredentialPreferences.user_id, userId), eq(userProjectCredentialPreferences.project_id, projectId))))[0];
+  if (!credPref?.ai_configs) return [];
+  try { return JSON.parse(credPref.ai_configs); } catch { return []; }
+}
+
+export function pickCredentialName(aiConfigs: AiConfigEntry[], provider: string | null, model: string | null): string | null {
+  if (aiConfigs.length === 0) return null;
+  if (provider) {
+    const exact = model ? aiConfigs.find((c) => c.provider === provider && c.model === model) : null;
+    if (exact) return exact.credential_name;
+    return aiConfigs.find((c) => c.provider === provider)?.credential_name ?? null;
+  }
+  return (aiConfigs.find((c) => c.is_default) ?? aiConfigs[0])?.credential_name ?? null;
+}
+
 export type ProjectConfig = {
   projectId?: string;
   orgId?: string;

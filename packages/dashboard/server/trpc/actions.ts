@@ -18,7 +18,7 @@ import { randomBytes } from "crypto";
 import { requireTaskAccess, requireTaskDeleteAccess } from "../lib/auth-guard";
 
 import { sendCommand, isAgentConnectedForUser } from "../ws/dispatch";
-import { getProjectConfig } from "../lib/project-bootstrap";
+import { getProjectConfig, getAiConfigs, pickCredentialName } from "../lib/project-bootstrap";
 import { getResourceMetrics } from "../lib/resources";
 import { checkOpenBlockers } from "../lib/blockers";
 import { log } from "../logger";
@@ -145,6 +145,8 @@ export const actionsRouter = router({
             const wfTransitions = allTransitions.filter((t) => wfSteps.some((s) => s.id === t.from_step_id));
             const wfRow = (await db.select().from(workflows).where(eq(workflows.id, resolvedWorkflowId)))[0];
 
+            const aiConfigs = input.projectId ? await getAiConfigs(ctx.userId, input.projectId) : [];
+
             const snapshot = {
               id: resolvedWorkflowId,
               name: wfRow?.name ?? "Default",
@@ -154,6 +156,7 @@ export const actionsRouter = router({
                 containerMode: s.container_mode, modules: JSON.parse(s.modules),
                 networkPolicy: s.network_policy, autoAdvance: !!s.auto_advance,
                 promptTemplate: s.prompt_template, provider: s.llm_provider ?? null, model: s.llm_model ?? null,
+                credentialName: pickCredentialName(aiConfigs, s.llm_provider ?? null, s.llm_model ?? null),
               })),
               transitions: wfTransitions.map((t) => ({
                 id: t.id, fromStepId: t.from_step_id, toStepId: t.to_step_id,
