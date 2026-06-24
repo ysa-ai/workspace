@@ -86,7 +86,9 @@ export async function pushSyncConfig(projectIds?: string[]): Promise<void> {
     for (const row of rows) {
       try {
         const cfg = await getProjectConfig(row.project_id, agentUserId ?? undefined);
-        const { llmProviderKeys: _k, issueSourceToken: _t, codeRepoToken: _c, ...safe } = cfg as any;
+        const { llmProviderKeys: _k, issueSourceToken: _t, codeRepoToken: _c, appCredentials, ...safe } = cfg as any;
+        // Persisted to the agent's on-disk cache — strip secret passwords, keep only metadata for the prompt preamble.
+        safe.appCredentials = (appCredentials ?? []).map((c: any) => ({ name: c.name, loginUrl: c.loginUrl, username: c.username }));
         configs[row.project_id] = safe;
       } catch { /* skip */ }
     }

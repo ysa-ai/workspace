@@ -17,6 +17,16 @@ import { writeStatus, upsertStepPrompt } from "../lib/status";
 import { getProjectConfig } from "../lib/project-bootstrap";
 import { fetchGitlabProjectId } from "../lib/gitlab";
 
+function decryptAppCredentials(blob: string | null | undefined): Array<{ name: string; loginUrl?: string; username?: string; password?: string }> {
+  if (!blob) return [];
+  try {
+    const arr = JSON.parse(decrypt(blob, config.masterKey));
+    return Array.isArray(arr) ? arr.filter((c) => c && typeof c.name === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 async function pickViaAgent(userId: number, command: "pickDirectory" | "pickFile" | "pickFileOrFolder", payload: Record<string, unknown> = {}): Promise<string | null> {
   if (!isAgentConnectedForUser(userId)) throw new Error("Agent not connected — cannot open file picker");
   const ack = await sendCommand(command, payload, 300_000);
@@ -589,6 +599,55 @@ export const projectsRouter = router({
     .mutation(async ({ input, ctx }) => {
       await requireProjectAccess(ctx.orgId, input.projectId);
       await upsertCredentialPreference(ctx.userId, input.projectId, { ai_configs: input.aiConfigs });
+      return { ok: true };
+    }),
+
+  getAppCredentials: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      await requireProjectAccess(ctx.orgId, input.projectId);
+      const row = (await db.select({ app_credentials: projects.app_credentials })
+        .from(projects).where(eq(projects.project_id, input.projectId)))[0];
+      const creds = decryptAppCredentials(row?.app_credentials);
+      return {
+        credentials: creds.map((c) => ({
+          name: c.name,
+          loginUrl: c.loginUrl ?? "",
+          username: c.username ?? "",
+          hasPassword: !!c.password,
+        })),
+      };
+    }),
+
+  updateAppCredentials: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      credentials: z.array(z.object({
+        name: z.string().min(1),
+        loginUrl: z.string().optional(),
+        username: z.string().optional(),
+        password: z.string().optional(),
+      })),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireProjectAccess(ctx.orgId, input.projectId);
+      const row = (await db.select({ app_credentials: projects.app_credentials })
+        .from(projects).where(eq(projects.project_id, input.projectId)))[0];
+      const existing = new Map(decryptAppCredentials(row?.app_credentials).map((c) => [c.name, c]));
+      const merged = input.credentials
+        .filter((c) => c.name.trim())
+        .map((c) => {
+          // Blank password means "unchanged" — keep the stored one, matching it by name.
+          const password = c.password ? c.password : (existing.get(c.name.trim())?.password ?? "");
+          const out: Record<string, string> = { name: c.name.trim(), username: c.username ?? "", password };
+          if (c.loginUrl?.trim()) out.loginUrl = c.loginUrl.trim();
+          return out;
+        });
+      const blob = merged.length ? encrypt(JSON.stringify(merged), config.masterKey) : null;
+      await db.update(projects)
+        .set({ app_credentials: blob, updated_at: new Date().toISOString() } as any)
+        .where(eq(projects.project_id, input.projectId));
+      pushSyncConfig([input.projectId]).catch(() => {});
       return { ok: true };
     }),
 

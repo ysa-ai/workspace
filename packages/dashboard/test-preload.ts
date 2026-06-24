@@ -1,7 +1,9 @@
-import { mock } from "bun:test";
-import { getTestDb } from "./server/lib/test-db";
+import { mock, afterAll } from "bun:test";
+import { getTestDb, closeTestDb } from "./server/lib/test-db";
 
 (globalThis as any).__testDb = await getTestDb();
+
+afterAll(async () => { await closeTestDb(); });
 
 // Mock server startup modules so tests that import `app` from server/index.ts
 // don't trigger real postgres connections or migrations.

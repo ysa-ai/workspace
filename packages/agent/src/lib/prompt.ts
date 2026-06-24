@@ -83,6 +83,15 @@ export async function composePrompt(
       preamble += `- **${s.name}**: \`curl -s --connect-timeout 2 --max-time 10 -o/dev/null http://localhost:${s.port} 2>/dev/null || (${envPrefix}${s.cmd} > /tmp/${s.name.replace(/\s+/g, "-").toLowerCase()}.log 2>&1 &)\` → port ${s.port}\n`;
     }
   }
+  if (config.appCredentials?.length) {
+    preamble += "\n**App login credentials** — the app under test requires authentication. Sign in before testing. Read the values from the environment variables named below — never hard-code them, never print them:\n";
+    for (const cred of config.appCredentials) {
+      const slug = cred.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      const where = cred.loginUrl ? `sign in at ${cred.loginUrl}` : "sign in at the app's login page";
+      preamble += `- **${cred.name}**: ${where}, username in \`$APP_CRED_${slug}_USERNAME\`, password in \`$APP_CRED_${slug}_PASSWORD\`.\n`;
+    }
+    preamble += "If sign-in fails or no credentials work, report the frontend check as `failed` — do not pass a feature you could not reach.\n";
+  }
   if (stepDef.containerMode === "readonly") {
     preamble += "\n> **READ-ONLY MODE** — Do NOT create, edit, or delete any files. Analyse only.\n";
   }

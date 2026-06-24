@@ -325,6 +325,15 @@ export async function runPhase(
       if (issueToken) extraEnv.ISSUE_TOKEN = issueToken;
       if (codeToken && stepDef.containerMode === "readwrite") extraEnv.GIT_TOKEN = codeToken;
 
+      const appCreds = (projectCfg.appCredentials as Array<{ name: string; loginUrl?: string; username: string; password: string }> | null) ?? [];
+      for (const cred of appCreds) {
+        const slug = cred.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+        if (!slug) continue;
+        if (cred.username) extraEnv[`APP_CRED_${slug}_USERNAME`] = cred.username;
+        if (cred.password) extraEnv[`APP_CRED_${slug}_PASSWORD`] = cred.password;
+        if (cred.loginUrl) extraEnv[`APP_CRED_${slug}_URL`] = cred.loginUrl;
+      }
+
       try {
         const meta = await requestFromDashboard<{ issue_url: string | null }>({
           type: "agent_request", command: "get_task_meta", payload: { taskId },
@@ -419,7 +428,8 @@ export async function runPhase(
           const secrets: string[] = [];
 
           const tokenKeys = ["ISSUE_TOKEN", "GIT_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "MISTRAL_API_KEY"];
-          for (const key of tokenKeys) {
+          const credPasswordKeys = Object.keys(extraEnv).filter((k) => k.startsWith("APP_CRED_") && k.endsWith("_PASSWORD"));
+          for (const key of [...tokenKeys, ...credPasswordKeys]) {
             const val = extraEnv[key];
             if (val && val.length >= 8) secrets.push(val);
           }

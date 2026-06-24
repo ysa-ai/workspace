@@ -87,6 +87,7 @@ export const SECTION_FIELDS: Record<string, string[]> = {
   integration: ["issue_source", "issue_url_template", "code_repo_url"],
   build: ["install_cmd", "build_cmd", "pre_dev_cmd", "test_cmd", "languages", "dev_servers", "start_servers", "deps_cache_files", "packages"],
   security: ["network_policy", "bypass_hosts"],
+  app_credentials: [],
   advanced: ["worktree_files", "container_init_commands"],
   paths: ["project_root", "worktree_prefix", "npmrc_path", "env_vars", "mcp_config"],
   ai_settings: [],
@@ -102,6 +103,7 @@ export const SHARED_SECTIONS = [
   { id: "integration", label: "Integration" },
   { id: "build", label: "Build" },
   { id: "security", label: "Security" },
+  { id: "app_credentials", label: "Credentials" },
   { id: "advanced", label: "Advanced" },
 ];
 

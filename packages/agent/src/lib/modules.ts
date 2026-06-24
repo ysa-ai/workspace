@@ -33,6 +33,8 @@ Do NOT use \`gh\`, \`WebFetch\`, or any MCP tool to read the issue.`,
 
 **Only run this module if the changes include frontend code** (UI components, styles, client-side logic, templates). If the changes are purely backend, infrastructure, or configuration with no visible frontend impact, set status to "skipped" in your result and stop.
 
+**\`"passed"\` means you actually exercised the changed feature end-to-end — nothing less.** If you cannot reach or trigger it (you cannot sign in, the page or state is unreachable, a required interaction is blocked), you MUST set status to \`"failed"\` and state plainly in \`summary\` what stopped you (e.g. "Could not sign in, so the rotation feature could not be tested"). NEVER report \`"passed"\` or "no visible UI regressions" for a feature you did not actually exercise — a feature you could not test is a \`"failed"\`, not a pass.
+
 **Setup** — write this capture script once. It lives in /tmp (NOT the worktree) so it is never committed. Installing playwright-core in /tmp/.playwright (a non-project dir) makes \`import "playwright-core"\` resolve there — never use the worktree, whose lockfile has no playwright-core:
 \`\`\`
 mkdir -p /tmp/.playwright
@@ -99,7 +101,7 @@ EOF
 4. Run \`bun /tmp/.playwright/capture.ts <url> <scope>\`. Choose the **minimal scope** that proves your change, to keep stored screenshots small: a CSS selector (e.g. \`'.notice-form'\`) when one element is the proof, \`--viewport\` (default) when the visible fold tells the story, \`--full\` only when the whole page matters. The script captures, re-encodes to WebP, uploads to the dashboard, and prints \`uploadedUrl\` plus a local \`localPath\` and a DOM outline.
 5. Read the PNG at \`localPath\` from the output using your Read tool to visually inspect the UI.
 6. Check \`consoleErrors\` in the JSON output for JS errors.
-7. Navigate to other pages or states as needed by running the script again with a different URL and scope.
+7. Navigate to other pages or states as needed by running the script again with a different URL and scope. If the feature is behind a login, authenticate first using the **App login credentials** listed in the preamble — read the username/password from the named environment variables (never hard-code them) and sign in via Playwright before capturing. If you have no working credentials and cannot sign in, set status to \`"failed"\` per the rule above — do not report a pass.
 8. Fix any visual or functional issues found, re-run to confirm. Read each PNG you take.
 9. Put every \`uploadedUrl\` you captured into the \`screenshots\` array of your result.
 10. Stop the dev servers when done.`,
@@ -148,7 +150,7 @@ export const MODULE_RESULT_SCHEMAS: Record<string, Record<string, string>> = {
     labels_removed: "string[] — labels removed from the issue",
   },
   frontend_debug: {
-    status: '"passed" | "failed" | "skipped"',
+    status: '"passed" | "failed" | "skipped" — "passed" ONLY if you actually exercised the changed feature; "failed" if you could not (e.g. could not sign in, feature unreachable); "skipped" only for non-frontend changes',
     summary: "string — what was verified and any issues found",
     screenshots: "string[] — uploadedUrl values printed by capture.ts (stored screenshot URLs), as proof",
     console_errors: "string — JS console errors detected, empty string if none",

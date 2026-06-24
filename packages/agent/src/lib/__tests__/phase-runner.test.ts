@@ -161,8 +161,8 @@ describe("composePrompt", () => {
       "analyze", "42", mockConfig, "http://localhost:3333",
       makeStepDef({ promptTemplate: "{DASHBOARD_URL}" }),
     );
-    expect(prompt).not.toContain("localhost");
-    expect(prompt).toContain("host.containers.internal");
+    expect(prompt).not.toContain("localhost:3333");
+    expect(prompt).toContain("host.containers.internal:3333");
   });
 });
 

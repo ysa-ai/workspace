@@ -12,6 +12,7 @@ type UserSettingsLike = {
   mcp_config?: string | null;
   issue_source_token?: string | null;
   code_repo_token?: string | null;
+  app_credentials?: string | null;
   container_memory?: string | null;
   container_cpus?: number | null;
   container_pids_limit?: number | null;
@@ -45,6 +46,29 @@ export function pickCredentialName(aiConfigs: AiConfigEntry[], provider: string 
   return (aiConfigs.find((c) => c.is_default) ?? aiConfigs[0])?.credential_name ?? null;
 }
 
+export interface AppCredential {
+  name: string;
+  loginUrl?: string;
+  username: string;
+  password: string;
+}
+
+function parseAppCredentials(blob: string | null | undefined, masterKey: string): AppCredential[] {
+  if (!blob) return [];
+  try {
+    const arr = JSON.parse(decrypt(blob, masterKey));
+    return Array.isArray(arr) ? arr.filter((c) => c && typeof c.name === "string" && c.name.trim()) : [];
+  } catch { return []; }
+}
+
+// Org-level defaults merged with per-user overrides; user entries override org entries by name.
+function mergeAppCredentials(orgBlob: string | null | undefined, userBlob: string | null | undefined, masterKey: string): AppCredential[] {
+  const byName = new Map<string, AppCredential>();
+  for (const c of parseAppCredentials(orgBlob, masterKey)) byName.set(c.name, c);
+  for (const c of parseAppCredentials(userBlob, masterKey)) byName.set(c.name, c);
+  return [...byName.values()];
+}
+
 export type ProjectConfig = {
   projectId?: string;
   orgId?: string;
@@ -74,6 +98,7 @@ export type ProjectConfig = {
   issueSource: "gitlab" | "github";
   issueSourceToken: string | null;
   codeRepoToken: string | null;
+  appCredentials: AppCredential[];
   defaultBranch?: string;
   codeRepoUrl?: string;
   gitlabProjectId?: number;
@@ -89,10 +114,11 @@ export type ProjectConfig = {
 };
 
 export function applyUserSettings(
-  base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken">,
+  base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken" | "appCredentials">,
   userSettings: UserSettingsLike | null | undefined,
   orgToken: string | null | undefined,
   masterKey: string,
+  orgAppCreds?: string | null | undefined,
 ): ProjectConfig {
   let issueSourceToken: string | null = null;
   if (orgToken) issueSourceToken = decrypt(orgToken, masterKey);
@@ -111,6 +137,7 @@ export function applyUserSettings(
     mcpConfig: userSettings?.mcp_config ?? null,
     issueSourceToken,
     codeRepoToken,
+    appCredentials: mergeAppCredentials(orgAppCreds, userSettings?.app_credentials, masterKey),
     containerMemory: userSettings?.container_memory ?? base.containerMemory,
     containerCpus: userSettings?.container_cpus ?? base.containerCpus,
     containerPidsLimit: userSettings?.container_pids_limit ?? base.containerPidsLimit,
@@ -120,7 +147,7 @@ export function applyUserSettings(
 }
 
 export async function getProjectConfig(projectId: string | null, userId?: number): Promise<ProjectConfig> {
-  const base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken"> = {
+  const base: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken" | "appCredentials"> = {
     branchPrefix: "fix/",
     issueUrlTemplate: "",
     port: config.port,
@@ -185,7 +212,7 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     }
   }
 
-  const orgBase: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken"> = {
+  const orgBase: Omit<ProjectConfig, "projectRoot" | "worktreePrefix" | "npmrcPath" | "envFiles" | "mcpConfig" | "issueSourceToken" | "codeRepoToken" | "appCredentials"> = {
     projectId: row.project_id,
     orgId: row.org_id ? String(row.org_id) : undefined,
     branchPrefix: row.branch_prefix,
@@ -221,5 +248,5 @@ export async function getProjectConfig(projectId: string | null, userId?: number
     packages: (() => { try { const a = JSON.parse(row.packages ?? "[]"); return Array.isArray(a) ? a : []; } catch { return []; } })(),
   };
 
-  return applyUserSettings(orgBase, userSettings, row.issue_source_token, config.masterKey);
+  return applyUserSettings(orgBase, userSettings, row.issue_source_token, config.masterKey, row.app_credentials);
 }

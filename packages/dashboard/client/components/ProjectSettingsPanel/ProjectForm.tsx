@@ -21,6 +21,7 @@ import { GeneralSection } from "./sections/shared/GeneralSection";
 import { IntegrationSection } from "./sections/shared/IntegrationSection";
 import { BuildSection } from "./sections/shared/BuildSection";
 import { SecuritySection } from "./sections/shared/SecuritySection";
+import { AppCredentialsSection } from "./sections/shared/AppCredentialsSection";
 import { AdvancedSection } from "./sections/shared/AdvancedSection";
 import { PathsSection } from "./sections/personal/PathsSection";
 import { AISettingsSection } from "./sections/personal/AISettingsSection";
@@ -338,6 +339,15 @@ export function ProjectForm({
               {activeSection === "security" && <SecuritySection />}
               {activeSection === "advanced" && <AdvancedSection projectRoot={projectRoot} />}
             </FormProvider>
+            {activeSection === "app_credentials" && (
+              editingProject ? (
+                <AppCredentialsSection projectId={editingProject.project_id} isAdminOrOwner={isAdminOrOwner} />
+              ) : (
+                <div className="p-4 rounded-lg border border-border bg-bg-surface text-[12px] text-text-muted">
+                  Save the project first, then add app credentials.
+                </div>
+              )
+            )}
             <FormProvider {...userForm}>
               {activeSection === "paths" && <PathsSection />}
               {activeSection === "container" && <ContainerSection />}
@@ -359,7 +369,7 @@ export function ProjectForm({
                 >
                   {isPending ? "Saving..." : "Save My Settings"}
                 </button>
-              ) : activeGroup === "shared" && isAdminOrOwner ? (
+              ) : activeGroup === "shared" && isAdminOrOwner && activeSection !== "app_credentials" ? (
                 <button
                   disabled={isPending || !sharedName}
                   className="px-4 py-2 rounded-lg text-[13px] font-medium bg-primary text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"

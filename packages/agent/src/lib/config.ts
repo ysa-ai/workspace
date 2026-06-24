@@ -6,6 +6,13 @@ export interface DevServer {
   env?: Record<string, string>;
 }
 
+// Metadata only — secret values (passwords) are never persisted to the agent config cache.
+export interface AppCredentialMeta {
+  name: string;
+  loginUrl?: string;
+  username?: string;
+}
+
 export interface AgentConfig {
   projectRoot: string;
   worktreePrefix: string;
@@ -18,6 +25,7 @@ export interface AgentConfig {
   worktreeFiles: string[];
   devServers: DevServer[];
   startServers: DevServer[];
+  appCredentials?: AppCredentialMeta[];
   mcpConfig: string | null;
   dashboardPort: number;
   issuesDir: string;
