@@ -9,6 +9,19 @@ export const AGENT_VERSION: string = pkg.version;
 export const CACHE_DIR = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "container");
 const CA_DIR = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "proxy-ca");
 const VERSION_FILE = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "version");
+const ASSETS_HASH_FILE = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "container-assets-hash");
+
+// Hash of the bundled container files, so the cache refreshes whenever they
+// change — not only on a version bump. A container-file change without a version
+// bump used to leave a stale cached sandbox-run.sh behind.
+async function computeAssetsHash(): Promise<string> {
+  const hasher = new Bun.CryptoHasher("sha256");
+  for (const name of Object.keys(assetPaths).sort()) {
+    hasher.update(name);
+    hasher.update(new Uint8Array(await Bun.file(assetPaths[name]).arrayBuffer()));
+  }
+  return hasher.digest("hex");
+}
 
 async function copyContainerFiles(): Promise<void> {
   mkdirSync(CACHE_DIR, { recursive: true });
@@ -75,8 +88,15 @@ export async function initContainerFiles(onLog?: (line: string) => void, onVerbo
   const isUpgrade = cachedVersion !== null && cachedVersion !== AGENT_VERSION;
   const filesMissing = !existsSync(resolve(CACHE_DIR, "sandbox-run.sh"));
 
-  if (isFirstInstall || isUpgrade || filesMissing) {
+  const assetsHash = await computeAssetsHash();
+  const cachedHash = existsSync(ASSETS_HASH_FILE)
+    ? (await Bun.file(ASSETS_HASH_FILE).text()).trim()
+    : null;
+  const filesChanged = cachedHash !== assetsHash;
+
+  if (isFirstInstall || isUpgrade || filesMissing || filesChanged) {
     await copyContainerFiles();
+    await Bun.write(ASSETS_HASH_FILE, assetsHash);
   }
 
   setContainerDir(CACHE_DIR);
