@@ -296,9 +296,10 @@ export async function runPhase(
   const credentialName = stepDef.credentialName ?? config.defaultCredentialName;
 
   if (credentialName) {
-    const { getCredentialKey } = await import("./keystore.js");
-    const key = await getCredentialKey(credentialName);
-    if (key) {
+    const { getCredential } = await import("./keystore.js");
+    const cred = await getCredential(credentialName);
+    if (cred) {
+      const { key, type } = cred;
       if (stepProvider === "deepseek") {
         extraEnv.ANTHROPIC_AUTH_TOKEN = key;
         extraEnv.ANTHROPIC_BASE_URL = "https://api.deepseek.com/anthropic";
@@ -306,6 +307,8 @@ export async function runPhase(
       } else if (stepProvider === "mistral") {
         extraEnv.MISTRAL_API_KEY = key;
         process.env.MISTRAL_API_KEY = key;
+      } else if (type === "oauth") {
+        extraEnv.CLAUDE_CODE_OAUTH_TOKEN = key;
       } else {
         extraEnv.ANTHROPIC_API_KEY = key;
       }

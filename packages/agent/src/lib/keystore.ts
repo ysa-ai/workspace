@@ -129,6 +129,13 @@ export async function getCredentialKey(name: string): Promise<string | null> {
   return readCredentialKey(name);
 }
 
+export async function getCredential(name: string): Promise<{ key: string; type: NamedCredential["type"] } | null> {
+  const key = await readCredentialKey(name);
+  if (!key) return null;
+  const meta = (await readCredentialMeta()).find((c) => c.name === name);
+  return { key, type: meta?.type ?? "api_key" };
+}
+
 // ─── Legacy project keys (kept for warm cache, no longer synced from server) ─
 
 export interface ProjectKeys {

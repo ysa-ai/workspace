@@ -78,9 +78,9 @@ async function runDetect(id: number, config: AgentConfig, dashboardUrl: string) 
   };
 
   if (config.defaultCredentialName) {
-    const { getCredentialKey } = await import("./keystore.js");
-    const key = await getCredentialKey(config.defaultCredentialName);
-    if (key) extraEnv["ANTHROPIC_API_KEY"] = key;
+    const { getCredential } = await import("./keystore.js");
+    const cred = await getCredential(config.defaultCredentialName);
+    if (cred) extraEnv[cred.type === "oauth" ? "CLAUDE_CODE_OAUTH_TOKEN" : "ANTHROPIC_API_KEY"] = cred.key;
   }
 
   const allowedTools = buildAllowedToolsFromPreset("readonly", null);
@@ -558,9 +558,14 @@ export async function openTerminal(
   };
 
   if (config.defaultCredentialName) {
-    const { getCredentialKey } = await import("./keystore.js");
-    const key = await getCredentialKey(config.defaultCredentialName);
-    if (key) extraEnv[config.llmProvider === "mistral" ? "MISTRAL_API_KEY" : "ANTHROPIC_API_KEY"] = key;
+    const { getCredential } = await import("./keystore.js");
+    const cred = await getCredential(config.defaultCredentialName);
+    if (cred) {
+      const envVar = config.llmProvider === "mistral"
+        ? "MISTRAL_API_KEY"
+        : cred.type === "oauth" ? "CLAUDE_CODE_OAUTH_TOKEN" : "ANTHROPIC_API_KEY";
+      extraEnv[envVar] = cred.key;
+    }
   }
 
   if (config.projectId) {

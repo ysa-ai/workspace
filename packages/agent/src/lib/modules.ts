@@ -41,9 +41,17 @@ mkdir -p /tmp/.playwright
 ( cd /tmp/.playwright && bun add playwright-core )
 cat > /tmp/.playwright/capture.ts << 'EOF'
 import { chromium } from "playwright-core";
-const url = process.argv[2];
-const scope = process.argv[3] || "--viewport"; // --viewport | --full | <css-selector>
-if (!url) { console.error("Usage: bun capture.ts <url> [--viewport|--full|<selector>]"); process.exit(1); }
+const rawArgs = process.argv.slice(2);
+const url = rawArgs[0];
+let scope = "--viewport"; // --viewport | --full | <css-selector>
+let waitFor: string | null = null; // --wait <css-selector|milliseconds>
+for (let i = 1; i < rawArgs.length; i++) {
+  const a = rawArgs[i];
+  if (a === "--wait") waitFor = rawArgs[++i] ?? null;
+  else if (a.startsWith("--wait=")) waitFor = a.slice(7);
+  else scope = a;
+}
+if (!url) { console.error("Usage: bun capture.ts <url> [--viewport|--full|<selector>] [--wait <selector|ms>]"); process.exit(1); }
 const browser = await chromium.launch({
   executablePath: "/usr/bin/chromium",
   headless: true,
@@ -52,8 +60,16 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const consoleErrors: string[] = [];
 page.on("console", msg => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
-await page.goto(url, { waitUntil: "load", timeout: 30000 });
-await page.waitForTimeout(1000);
+await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+// SPAs render after load; wait for the network to settle. networkidle may never fire on apps with
+// websockets/long-polling, so cap it and move on. Pass --wait to gate on the real content explicitly.
+await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+if (waitFor) {
+  if (/^[0-9]+$/.test(waitFor)) await page.waitForTimeout(parseInt(waitFor));
+  else await page.waitForSelector(waitFor, { state: "visible", timeout: 15000 }).catch(() => {});
+} else {
+  await page.waitForTimeout(500);
+}
 
 let png: Buffer;
 if (scope === "--full") png = await page.screenshot({ fullPage: true });
@@ -98,8 +114,8 @@ EOF
 1. Start **all** configured dev servers listed in the preamble in the background, each logging to a file (e.g. \`cmd > /tmp/server-name.log 2>&1 &\`). The app typically needs API + frontend servers running together.
 2. Wait 5 seconds, then read each server's log file to check for startup crashes. If a server crashed, set status to \`"failed"\` with the crash output in \`summary\` and stop immediately.
 3. Poll each server's port every 2 seconds for up to 60 seconds: \`curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>\`. Stop as soon as you get 200/301/302. If not ready after 60 seconds, read its log again and set status to \`"failed"\` with the error — stop immediately.
-4. Run \`bun /tmp/.playwright/capture.ts <url> <scope>\`. Choose the **minimal scope** that proves your change, to keep stored screenshots small: a CSS selector (e.g. \`'.notice-form'\`) when one element is the proof, \`--viewport\` (default) when the visible fold tells the story, \`--full\` only when the whole page matters. The script captures, re-encodes to WebP, uploads to the dashboard, and prints \`uploadedUrl\` plus a local \`localPath\` and a DOM outline.
-5. Read the PNG at \`localPath\` from the output using your Read tool to visually inspect the UI.
+4. Run \`bun /tmp/.playwright/capture.ts <url> <scope> [--wait <selector|ms>]\`. Choose the **minimal scope** that proves your change, to keep stored screenshots small: a CSS selector (e.g. \`'.notice-form'\`) when one element is the proof, \`--viewport\` (default) when the visible fold tells the story, \`--full\` only when the whole page matters. This app renders content after load, so pass \`--wait <css-selector>\` to wait for the real element of the feature you are verifying (e.g. \`--wait '.notice-detail'\`) — never capture a loading spinner, skeleton, or blank state. Use \`--wait <ms>\` only as a fallback. The script captures, re-encodes to WebP, uploads to the dashboard, and prints \`uploadedUrl\` plus a local \`localPath\` and a DOM outline.
+5. Read the PNG at \`localPath\` and confirm it actually shows the feature under test **in its final, settled state** — not a loading spinner/skeleton, a blank page, or a transient overlay/popover obscuring the content. If it does not, re-capture: add \`--wait <selector>\` for the real element, navigate directly to the intended destination URL rather than an intermediate state, and only then use the screenshot as proof. Do not submit a loading or wrong-state screenshot.
 6. Check \`consoleErrors\` in the JSON output for JS errors.
 7. Navigate to other pages or states as needed by running the script again with a different URL and scope. If the feature is behind a login, authenticate first using the **App login credentials** listed in the preamble — read the username/password from the named environment variables (never hard-code them) and sign in via Playwright before capturing. If you have no working credentials and cannot sign in, set status to \`"failed"\` per the rule above — do not report a pass.
 8. Fix any visual or functional issues found, re-run to confirm. Read each PNG you take.
