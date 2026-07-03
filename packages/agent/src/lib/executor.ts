@@ -306,6 +306,13 @@ export async function cleanupIssue(
     `podman volume ls --format '{{.Name}}' | grep -- '^task-session-${compoundPrefix}-\\|^shadow-[^-]*-${compoundPrefix}-' | xargs podman volume rm 2>/dev/null || true`,
   );
 
+  // Remove this task's per-phase diagnostic dirs (Chromium netlogs). Task-level, not
+  // per-phase — a module can fail inside a phase that still succeeds, so netlogs must
+  // survive phase boundaries and only get swept when the whole task is torn down.
+  await runShell(
+    `find "${config.projectRoot}/.ysa/logs" -maxdepth 1 -type d -name '${compoundPrefix}-*' -exec rm -rf {} + 2>/dev/null || true`,
+  );
+
   const worktree = `${config.worktreePrefix}${issueId}`;
   const branch = `${config.branchPrefix}${issueId}`;
   await removeWorktree(config.projectRoot, worktree, branch);

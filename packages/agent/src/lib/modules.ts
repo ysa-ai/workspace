@@ -55,11 +55,16 @@ if (!url) { console.error("Usage: bun capture.ts <url> [--viewport|--full|<selec
 const browser = await chromium.launch({
   executablePath: "/usr/bin/chromium",
   headless: true,
-  args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  args: ["--no-sandbox", "--disable-dev-shm-usage", \`--log-net-log=/ysa-logs/netlog-\${Date.now()}.json\`],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const consoleErrors: string[] = [];
 page.on("console", msg => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
+const requestFailures: string[] = [];
+page.on("requestfailed", r => { const e = r.failure()?.errorText || "failed"; if (e !== "net::ERR_ABORTED") requestFailures.push(\`\${e} \${r.url()}\`); });
+page.on("crash", () => requestFailures.push("RENDERER_CRASHED (renderer process died — could be OOM, GPU, or a blocked syscall)"));
+page.on("pageerror", e => requestFailures.push(\`PAGEERROR \${e.message}\`));
+try {
 await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 // SPAs render after load; wait for the network to settle. networkidle may never fire on apps with
 // websockets/long-polling, so cap it and move on. Pass --wait to gate on the real content explicitly.
@@ -104,8 +109,10 @@ const uploadedUrl = res.ok ? (await res.json()).url : null;
 const title = await page.title();
 const outline = await page.$$eval("h1,h2,h3,button,a,[role]", els =>
   els.slice(0, 50).map(e => \`\${e.tagName.toLowerCase()}: \${(e.textContent || "").trim().slice(0, 60)}\`));
-console.log(JSON.stringify({ uploadedUrl, localPath, scope, title, consoleErrors, outline }, null, 2));
-await browser.close();
+console.log(JSON.stringify({ uploadedUrl, localPath, scope, title, consoleErrors, requestFailures: requestFailures.slice(0, 50), requestFailureCount: requestFailures.length, outline }, null, 2));
+} finally {
+  await browser.close(); // always close so Chromium finalizes the netlog
+}
 EOF
 \`\`\`
 
@@ -116,7 +123,7 @@ EOF
 3. Poll each server's port every 2 seconds for up to 60 seconds: \`curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>\`. Stop as soon as you get 200/301/302. If not ready after 60 seconds, read its log again and set status to \`"failed"\` with the error — stop immediately.
 4. Run \`bun /tmp/.playwright/capture.ts <url> <scope> [--wait <selector|ms>]\`. Choose the **minimal scope** that proves your change, to keep stored screenshots small: a CSS selector (e.g. \`'.notice-form'\`) when one element is the proof, \`--viewport\` (default) when the visible fold tells the story, \`--full\` only when the whole page matters. This app renders content after load, so pass \`--wait <css-selector>\` to wait for the real element of the feature you are verifying (e.g. \`--wait '.notice-detail'\`) — never capture a loading spinner, skeleton, or blank state. Use \`--wait <ms>\` only as a fallback. The script captures, re-encodes to WebP, uploads to the dashboard, and prints \`uploadedUrl\` plus a local \`localPath\` and a DOM outline.
 5. Read the PNG at \`localPath\` and confirm it actually shows the feature under test **in its final, settled state** — not a loading spinner/skeleton, a blank page, or a transient overlay/popover obscuring the content. If it does not, re-capture: add \`--wait <selector>\` for the real element, navigate directly to the intended destination URL rather than an intermediate state, and only then use the screenshot as proof. Do not submit a loading or wrong-state screenshot.
-6. Check \`consoleErrors\` in the JSON output for JS errors.
+6. Check \`consoleErrors\` and \`requestFailures\` in the JSON output. If \`requestFailures\` shows the same \`net::\` error repeated across many URLs (e.g. \`net::ERR_INSUFFICIENT_RESOURCES\`), the page is overloading the network stack — an application bug (a runaway fetch/retry/WebSocket loop), not the container. \`RENDERER_CRASHED\` means an out-of-memory crash. A full network trace is written to \`.ysa/logs/<task>/netlog-*.json\` on the host for deep analysis.
 7. Navigate to other pages or states as needed by running the script again with a different URL and scope. If the feature is behind a login, authenticate first using the **App login credentials** listed in the preamble — read the username/password from the named environment variables (never hard-code them) and sign in via Playwright before capturing. If you have no working credentials and cannot sign in, set status to \`"failed"\` per the rule above — do not report a pass.
 8. Fix any visual or functional issues found, re-run to confirm. Read each PNG you take.
 9. Put every \`uploadedUrl\` you captured into the \`screenshots\` array of your result.
