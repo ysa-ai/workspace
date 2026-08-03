@@ -36,15 +36,22 @@ const transitionInput = z.object({
   position: z.number().int().default(0),
 });
 
+function modulePackagesKey(moduleNames: string[]) {
+  return [...aptPackagesForModules(moduleNames)].sort().join(",")
+    + "|" + [...globalPackagesForModules(moduleNames)].sort().join(",");
+}
+
 async function maybeTriggerModuleBuild(
   workflowId: number,
   steps: Array<{ modules: Array<{ name: string }> }>,
   userId: number,
+  previousModuleNames: string[] | null = null,
 ) {
   const moduleNames = steps.flatMap((s) => s.modules.map((m) => m.name));
   const extraPackages = aptPackagesForModules(moduleNames);
   const extraGlobalPackages = globalPackagesForModules(moduleNames);
   if (extraPackages.length === 0 && extraGlobalPackages.length === 0) return;
+  if (previousModuleNames && modulePackagesKey(previousModuleNames) === modulePackagesKey(moduleNames)) return;
 
   const affectedProjects = await db.select().from(projects).where(eq(projects.workflow_id, workflowId));
 
@@ -276,11 +283,16 @@ export const workflowsRouter = router({
           .where(eq(workflows.id, targetId));
       }
 
+      let previousModuleNames: string[] | null = null;
       if (input.steps !== undefined) {
         const existingSteps = await db
           .select()
           .from(workflowSteps)
           .where(eq(workflowSteps.workflow_id, targetId));
+        previousModuleNames = existingSteps.flatMap((s) => {
+          try { return (JSON.parse(s.modules ?? "[]") as Array<{ name: string }>).map((m) => m.name); }
+          catch { return []; }
+        });
         const existingBySlug = new Map(existingSteps.map((s) => [s.slug, s]));
         const incomingSlugs = new Set(input.steps.map((s) => s.slug));
 
@@ -340,7 +352,7 @@ export const workflowsRouter = router({
       }
 
       const result = (await getWorkflowWithSteps(targetId))!;
-      if (input.steps !== undefined) await maybeTriggerModuleBuild(targetId, input.steps, ctx.userId);
+      if (input.steps !== undefined) await maybeTriggerModuleBuild(targetId, input.steps, ctx.userId, previousModuleNames);
       return result;
     }),
 
