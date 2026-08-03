@@ -525,9 +525,8 @@ async function handleCommand(
         if (hadApkImage && oldImage) {
           await Bun.spawn(["podman", "rmi", "-f", oldImage], { stdout: "ignore", stderr: "ignore" }).exited;
         }
-        await Bun.spawn(["bash", "-c", `rm -rf "${installsPath}" && mkdir -p "${installsPath}"`], { stdout: "ignore", stderr: "ignore" }).exited;
 
-        const { buildProjectImage, installRuntimes, rebuildSandboxImage, getImageCfHash, getContainerDir } = await import("@ysa-ai/ysa/runtime");
+        const { buildProjectImage, installRuntimes, rebuildSandboxImage, getImageCfHash, getImagePackagesHash, getContainerDir } = await import("@ysa-ai/ysa/runtime");
 
         let lastProgress = 0;
         const onLog = (line: string) => {
@@ -542,23 +541,46 @@ async function handleCommand(
         const cfContent = await Bun.file(resolve(getContainerDir(), "Containerfile")).text();
         const currentCfHash = Bun.hash(cfContent).toString(16);
         const imageCfHash = await getImageCfHash(containerImage as string);
+        let baseRebuilt = false;
         if (imageCfHash !== currentCfHash) {
           log.info(`Containerfile changed (${imageCfHash ?? "unlabeled"} → ${currentCfHash}), rebuilding base image ${containerImage}...`);
           const caDir = resolve(process.env.HOME ?? "~", ".cache", "ysa-agent", "proxy-ca");
           const agentType = (containerImage as string).replace("sandbox-", "") as "claude" | "mistral";
           const baseResult = await rebuildSandboxImage({ image: containerImage as string, agent: agentType, caDir, onLog });
           if (!baseResult.ok) { sendAck(requestId, false, undefined, baseResult.error); break; }
+          baseRebuilt = true;
         }
 
         const globalPkgs: string[] = (payload as any).globalPackages ?? [];
+        const wantsImage = (apkPackages as string[]).length > 0 || globalPkgs.length > 0;
+        const packagesHash = Bun.hash(
+          globalPkgs.length > 0
+            ? [...(apkPackages as string[])].sort().join(",") + "|" + [...globalPkgs].sort().join(",")
+            : [...(apkPackages as string[])].sort().join(","),
+        ).toString(16);
+        const needsImage = wantsImage && (baseRebuilt || (await getImagePackagesHash(projectImage as string)) !== packagesHash);
+
+        const toolsHash = Bun.hash(JSON.stringify({ tools, env, runtimeEnv, copyDirs })).toString(16);
+        const toolsMarker = join(installsPath, ".tools-hash");
+        const toolsUpToDate = await Bun.file(toolsMarker).text().then((h) => h === toolsHash, () => false);
+        const needsRuntimes = (tools as any[]).length > 0 && (baseRebuilt || needsImage || !toolsUpToDate);
+
+        if (!needsImage && !needsRuntimes) {
+          log.info(`Project runtime already up to date, nothing to rebuild.`);
+          sendAck(requestId, true);
+          break;
+        }
+
         log.info(`Building project runtime (path: ${installsPath})...`);
-        if ((apkPackages as string[]).length > 0 || globalPkgs.length > 0) {
+        if (needsImage) {
           const result = await buildProjectImage(apkPackages, projectImage, containerImage, packageManager, globalPkgs, onLog);
           if (!result.ok) { sendAck(requestId, false, undefined, result.error); break; }
         }
-        if ((tools as any[]).length > 0) {
+        if (needsRuntimes) {
+          await Bun.spawn(["bash", "-c", `rm -rf "${installsPath}" && mkdir -p "${installsPath}"`], { stdout: "ignore", stderr: "ignore" }).exited;
           const result = await installRuntimes(tools, installsPath, projectImage, env, runtimeEnv, copyDirs, onLog);
           if (!result.ok) { sendAck(requestId, false, undefined, result.error); break; }
+          await Bun.write(toolsMarker, toolsHash);
         }
         log.info(`Project runtime build complete.`);
         await Bun.spawn(["podman", "image", "prune", "-f"], { stdout: "ignore", stderr: "ignore" }).exited;
