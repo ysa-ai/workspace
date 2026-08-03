@@ -6,7 +6,7 @@
       "name": "agentsec-ai",
       "dependencies": {
         "@hookform/resolvers": "^5.2.2",
-        "@ysa-ai/ysa": "0.5.4",
+        "@ysa-ai/ysa": "0.5.6",
         "geist": "^1.7.0",
         "marked": "^17.0.2",
         "react-hook-form": "^7.71.2",
@@ -25,7 +25,7 @@
       },
       "dependencies": {
         "@ysa-ai/shared": "workspace:*",
-        "@ysa-ai/ysa": "0.5.4",
+        "@ysa-ai/ysa": "0.5.6",
         "commander": "^13.1.0",
         "consola": "^3.4.2",
       },
@@ -44,7 +44,7 @@
         "@trpc/react-query": "^11.0.0",
         "@trpc/server": "^11.0.0",
         "@ysa-ai/shared": "workspace:*",
-        "@ysa-ai/ysa": "0.5.4",
+        "@ysa-ai/ysa": "0.5.6",
         "consola": "^3.4.2",
         "drizzle-orm": "^0.44.0",
         "highlight.js": "^11.11.1",
@@ -437,7 +437,7 @@
 
     "@ysa-ai/shared": ["@ysa-ai/shared@workspace:packages/shared"],
 
-    "@ysa-ai/ysa": ["@ysa-ai/ysa@0.5.4", "", { "dependencies": { "commander": "^13.1.0", "hono": "^4.11.9", "marked": "^17.0.2", "zod": "^4.3.6" }, "peerDependencies": { "typescript": "^5.0.0" }, "bin": { "ysa": "src/cli/index.ts" } }, "sha512-6TBEWO7+yHJOs3UXNLoi9LJJAbS1oamW94tZg0c9yYT3OLpOqGPpY6mQbgheoTMFLNIEa5X1Aq8JNG9/g24+OA=="],
+    "@ysa-ai/ysa": ["@ysa-ai/ysa@0.5.6", "", { "dependencies": { "commander": "^13.1.0", "hono": "^4.11.9", "marked": "^17.0.2", "zod": "^4.3.6" }, "peerDependencies": { "typescript": "^5.0.0" }, "bin": { "ysa": "src/cli/index.ts" } }, "sha512-l+KA2GEzPwD8SQYgIEGwlY3VenLzj/XhBx+y5bKInhqhycpYToEg76Ya4x65bNci/wctJIwcrs+KeSWmRkDibg=="],
 
     "ansi-regex": ["ansi-regex@6.2.2", "", {}, "sha512-Bq3SmSpyFHaWjPk8If9yc6svM8c56dB5BAtW4Qbw5jHTwwXXcTLoRMkpDJp6VL0XzlWaCHTXrkFURMYmD0sLqg=="],
 

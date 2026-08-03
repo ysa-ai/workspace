@@ -20,7 +20,7 @@
     "test": "bun test src/"
   },
   "dependencies": {
-    "@ysa-ai/ysa": "0.5.5",
+    "@ysa-ai/ysa": "0.5.6",
     "@ysa-ai/shared": "workspace:*",
     "commander": "^13.1.0",
     "consola": "^3.4.2"
