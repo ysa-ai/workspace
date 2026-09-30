@@ -1,5 +1,10 @@
 # ysa workspace
 
+> [!WARNING]
+> **This project is no longer maintained and has been archived (September 2026).**
+> Orchestrating coding agents is now well covered by tools such as [Archon](https://github.com/coleam00/Archon), and agent sandboxing by [Docker Sandboxes](https://www.docker.com/products/docker-sandboxes/).
+> The code stays available under the MIT license — feel free to fork it.
+
 **Orchestrate AI agents in parallel, safely, on your own infra.**
 
 [Quick start](#quick-start) · [Features](#features) · [Agent setup](#connecting-the-agent) · [Docs](#documentation) · [Self-hosting](#docker)
